@@ -23,6 +23,7 @@ pub struct Sonar {
     fast_time_ifft_plan: Arc<dyn Fft<f32>>,
     data_cube: Array2<Complex32>,
     fft_scratch: Vec<Complex32>,
+    scratch2: Vec<Complex32>,
     impulse_counter: usize,
     negative_carrier: Vec<Complex32>,
     decimation: usize,
@@ -67,6 +68,7 @@ impl Sonar {
             impulse_fft,
             input_buffer: Vec::with_capacity(impulse.len()),
             fft_scratch: vec![Complex32::zero(); scratch_size],
+            scratch2: vec![Complex32::zero(); impulse.len()],
             fast_time_rfft_plan,
             fast_time_fft_plan,
             fast_time_ifft_plan,
@@ -98,24 +100,27 @@ impl Sonar {
     }
 
     fn handle_impulse(&mut self) {
-        let mut input_fft = vec![Complex32::zero(); self.impulse.len()];
+        self.scratch2.fill(Complex32::ZERO);
         self.fast_time_rfft_plan
             .process_with_scratch(
                 &mut self.input_buffer,
-                &mut input_fft[..257],
+                &mut self.scratch2[..257],
                 &mut self.fft_scratch,
             )
             .unwrap();
+        //scratch2 now contains fft with negative frequencies removed
 
-        for (input_bin, impulse_bin) in std::iter::zip(&mut input_fft, &self.impulse_fft) {
+        for (input_bin, impulse_bin) in std::iter::zip(&mut self.scratch2, &self.impulse_fft) {
             *input_bin *= impulse_bin.conj();
         }
-        let mut xcorr_fft = input_fft;
+        //scratch2 now contains fft of xcorr
 
         self.fast_time_ifft_plan
-            .process_with_scratch(&mut xcorr_fft, &mut self.fft_scratch);
-        let mut xcorr = xcorr_fft;
-        for ((x_in, x_cis), out) in xcorr
+            .process_with_scratch(&mut self.scratch2, &mut self.fft_scratch);
+        //scratch2 now contains xcorr
+
+        //save freq-shifted and decimated xcorr
+        for ((x_in, x_cis), out) in (self.scratch2)
             .iter()
             .step_by(self.decimation)
             .zip(self.negative_carrier.iter().step_by(self.decimation))
@@ -123,17 +128,5 @@ impl Sonar {
         {
             *out = x_in * x_cis;
         }
-        // self.fast_time_fft_plan
-        //     .process_with_scratch(&mut xcorr, &mut self.fft_scratch);
-
-        // self.save_fast_time_data(&xcorr);
     }
-
-    // fn save_fast_time_data(&mut self, xcorr: &[Complex32]) {
-    //     self.data_cube
-    //         .slice_mut(s![0, ..])
-    //         .into_slice()
-    //         .expect("data cube strides are wrong")
-    //         .clone_from_slice(&xcorr);
-    // }
 }

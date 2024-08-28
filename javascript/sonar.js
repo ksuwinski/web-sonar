@@ -17,22 +17,57 @@ let audioContext = undefined;
 buttonStart.addEventListener("click", async () => {
   if (started) {
     audioContext.suspend();
-    started = false;
-    buttonStart.innerHTML = "start";
+    // started = false;
     return;
   }
   started = true;
   audioContext = new AudioContext({ latencyHint: "playback" });
 
-  const response = await fetch(
-    "/pkg/sonar_bg.wasm?idk=" + Math.round(Math.random() * 1000000),
-  );
-  const wasm_blob = await response.arrayBuffer();
-
   const fs = audioContext.sampleRate;
-  fc = fs / Math.round(fs / fc);
+  const normalizedCarrier = fc / fs;
   console.log("fs = %f", fs);
 
+  const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
+  const chirpSource = initAudioOutput(audioContext, chirp);
+
+  const sonarProcessor = await initSonarWorklet(audioContext, {
+    chirp,
+    normalizedCarrier,
+  });
+  const micSource = await initAudioInput(audioContext);
+  micSource.connect(sonarProcessor);
+
+  buttonStart.innerHTML = "stop";
+  buttonStart.disabled = true;
+});
+
+function onWorkletMessage(ev) {
+  console.log(ev.data);
+  clutterPlot.data.datasets[0].data = ev.data.clutter;
+  clutterPlot.update();
+
+  const CELL_SIZE = 5;
+  rd_ctx.beginPath();
+
+  for (let row = 0; row < n_slow; row++) {
+    for (let col = 0; col < n_fast; col++) {
+      // const idx = getIndex(row, col);
+
+      rd_ctx.fillStyle = Math.random() < 0.5 ? "#ff0000" : "#00ff00";
+
+      rd_ctx.fillRect(
+        col * (CELL_SIZE + 1) + 1,
+        row * (CELL_SIZE + 1) + 1,
+        CELL_SIZE,
+        CELL_SIZE,
+      );
+    }
+  }
+
+  rd_ctx.stroke();
+}
+
+async function initAudioInput(audioContext) {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       autoGainControl: false,
@@ -43,60 +78,42 @@ buttonStart.addEventListener("click", async () => {
       sampleRate: 44100,
     },
   });
-  const micSource = audioContext.createMediaStreamSource(stream);
-
   const audioTrack = stream.getAudioTracks()[0];
-  console.log(audioTrack.getSettings());
+  console.log("audio input settings:", audioTrack.getSettings());
+
+  const micSource = audioContext.createMediaStreamSource(stream);
+  return micSource;
+}
+
+function initAudioOutput(audioContext, chirp) {
+  const myArrayBuffer = audioContext.createBuffer(
+    2,
+    chirp.length,
+    audioContext.sampleRate,
+  );
+  myArrayBuffer.copyToChannel(chirp, 0);
+  const chirpSource = audioContext.createBufferSource();
+  chirpSource.buffer = myArrayBuffer;
+  chirpSource.loop = true;
+  chirpSource.connect(audioContext.destination);
+  chirpSource.start();
+  return chirpSource;
+}
+
+async function initSonarWorklet(audioContext, params) {
+  const response = await fetch(
+    "/pkg/sonar_bg.wasm?idk=" + Math.round(Math.random() * 1000000),
+  );
+  const wasm_blob = await response.arrayBuffer();
 
   await audioContext.audioWorklet.addModule("sonar-processor.js");
   const sonarProcessor = new AudioWorkletNode(audioContext, "sonar-processor", {
     numberOfInputs: 1,
     numberOfOutputs: 0,
   });
-  sonarProcessor.port.onmessage = (ev) => {
-    console.log(ev.data);
-    clutterPlot.data.datasets[0].data = ev.data.clutter;
-    clutterPlot.update();
+  sonarProcessor.port.onmessage = onWorkletMessage;
 
-    const CELL_SIZE = 5;
-    rd_ctx.beginPath();
+  sonarProcessor.port.postMessage({ wasm_blob, ...params });
 
-    for (let row = 0; row < n_slow; row++) {
-      for (let col = 0; col < n_fast; col++) {
-        // const idx = getIndex(row, col);
-
-        rd_ctx.fillStyle = Math.random() < 0.5 ? "#ff0000" : "#00ff00";
-
-        rd_ctx.fillRect(
-          col * (CELL_SIZE + 1) + 1,
-          row * (CELL_SIZE + 1) + 1,
-          CELL_SIZE,
-          CELL_SIZE,
-        );
-      }
-    }
-
-    rd_ctx.stroke();
-  };
-  micSource.connect(sonarProcessor);
-
-  const myArrayBuffer = audioContext.createBuffer(2, impulseLength, fs);
-  const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
-  myArrayBuffer.copyToChannel(chirp, 0);
-  sonarProcessor.port.postMessage({
-    wasm_blob,
-    chirp,
-    normalizedCarrier: fc / fs,
-  });
-
-  const chirpSource = audioContext.createBufferSource();
-  chirpSource.buffer = myArrayBuffer;
-  chirpSource.loop = true;
-
-  chirpSource.connect(audioContext.destination);
-  chirpSource.start();
-
-  buttonStart.innerHTML = "stop";
-});
-
-function initSonarWorklet() {}
+  return sonarProcessor;
+}

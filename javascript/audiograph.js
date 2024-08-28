@@ -15,33 +15,32 @@ export class SonarAudioGraph {
     };
     this.sonarParameters = {
       impulseLength: 512,
-      fs: 17000,
+      fc: 17000,
       bandwidth: 4000,
     };
   }
   async #initialize() {
+    const impulseLength = this.sonarParameters.impulseLength;
+    const fc = this.sonarParameters.fc;
+    const bandwidth = this.sonarParameters.bandwidth;
+
     this.audioContext = new AudioContext({ latencyHint: "playback" });
 
     const fs = this.audioContext.sampleRate;
-    const normalizedCarrier = this.sonarParameters.fc / fs;
+    const normalizedCarrier = fc / fs;
     console.log("fs = %f", fs);
 
-    const chirp = generateChirp(
-      fs,
-      this.sonarParameters.impulseLength,
-      this.sonarParameters.fc,
-      this.sonarParameters.bandwidth,
-    );
+    const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
     this.chirpSource = initAudioOutput(this.audioContext, chirp);
 
-    this.micSource = await initAudioInput(this.audioContext);
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
       normalizedCarrier,
     });
     this.sonarProcessor.port.onmessage = this.onWorkletMessage;
-
+    this.micSource = await initAudioInput(this.audioContext);
     this.micSource.connect(this.sonarProcessor);
+
     this.initialized = true;
   }
   async start() {

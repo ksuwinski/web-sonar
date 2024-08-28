@@ -1,4 +1,4 @@
-import { generateChirp } from "./chirp.js";
+import { SonarAudioGraph } from "./audiograph.js";
 import { initClutterPlot } from "./clutterplot.js";
 
 let impulseLength = 512;
@@ -13,32 +13,19 @@ const clutterPlot = initClutterPlot(n_fast);
 const buttonStart = document.getElementById("button-start");
 
 let started = false;
-let audioContext = undefined;
+let audio_graph = new SonarAudioGraph();
+audio_graph.onWorkletMessage = onWorkletMessage;
 buttonStart.addEventListener("click", async () => {
   if (started) {
-    audioContext.suspend();
-    // started = false;
+    audio_graph.stop();
+    buttonStart.innerHTML = "start";
+    started = false;
     return;
   }
   started = true;
-  audioContext = new AudioContext({ latencyHint: "playback" });
-
-  const fs = audioContext.sampleRate;
-  const normalizedCarrier = fc / fs;
-  console.log("fs = %f", fs);
-
-  const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
-  const chirpSource = initAudioOutput(audioContext, chirp);
-
-  const sonarProcessor = await initSonarWorklet(audioContext, {
-    chirp,
-    normalizedCarrier,
-  });
-  const micSource = await initAudioInput(audioContext);
-  micSource.connect(sonarProcessor);
+  audio_graph.start();
 
   buttonStart.innerHTML = "stop";
-  buttonStart.disabled = true;
 });
 
 function onWorkletMessage(ev) {
@@ -65,55 +52,4 @@ function onWorkletMessage(ev) {
   }
 
   rd_ctx.stroke();
-}
-
-async function initAudioInput(audioContext) {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      autoGainControl: false,
-      echoCancellation: false,
-      noiseSuppression: false,
-      voiceIsolation: false,
-      channelCount: 2,
-      sampleRate: 44100,
-    },
-  });
-  const audioTrack = stream.getAudioTracks()[0];
-  console.log("audio input settings:", audioTrack.getSettings());
-
-  const micSource = audioContext.createMediaStreamSource(stream);
-  return micSource;
-}
-
-function initAudioOutput(audioContext, chirp) {
-  const myArrayBuffer = audioContext.createBuffer(
-    2,
-    chirp.length,
-    audioContext.sampleRate,
-  );
-  myArrayBuffer.copyToChannel(chirp, 0);
-  const chirpSource = audioContext.createBufferSource();
-  chirpSource.buffer = myArrayBuffer;
-  chirpSource.loop = true;
-  chirpSource.connect(audioContext.destination);
-  chirpSource.start();
-  return chirpSource;
-}
-
-async function initSonarWorklet(audioContext, params) {
-  const response = await fetch(
-    "/pkg/sonar_bg.wasm?idk=" + Math.round(Math.random() * 1000000),
-  );
-  const wasm_blob = await response.arrayBuffer();
-
-  await audioContext.audioWorklet.addModule("sonar-processor.js");
-  const sonarProcessor = new AudioWorkletNode(audioContext, "sonar-processor", {
-    numberOfInputs: 1,
-    numberOfOutputs: 0,
-  });
-  sonarProcessor.port.onmessage = onWorkletMessage;
-
-  sonarProcessor.port.postMessage({ wasm_blob, ...params });
-
-  return sonarProcessor;
 }

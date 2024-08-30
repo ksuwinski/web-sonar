@@ -22,14 +22,21 @@ class SonarProcessor extends AudioWorkletProcessor {
       return true;
     }
     const input = inputs[0];
+    if (input[0] == undefined) {
+      console.log("no channels on input");
+      return true;
+    }
 
     // for (let channel = 0; channel < input.length; ++channel) {
     this.sonar.handle_input(input[0]);
     // }
     // buffer_view.set(input[0]);
 
-    if (this.n % 100 == 0) {
-      this.port.postMessage({ clutter: this.sonar.clutter() });
+    if (this.n % 80 == 0) {
+      this.port.postMessage({
+        clutter: this.sonar.clutter(),
+        fast_slow: this.sonar.get_data_cube(),
+      });
     }
     this.n += 1;
     return true;

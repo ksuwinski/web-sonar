@@ -28,6 +28,7 @@ pub struct Sonar {
     range_doppler: RangeDopplerProcessor,
     normalized_f_carrier: f32,
     n_processed_samples: usize,
+    output_buf_2d: Array2<f32>,
 }
 struct RangeDopplerProcessor {
     impulse_counter: usize,
@@ -105,6 +106,7 @@ impl Sonar {
             impulse: impulse.to_vec(),
             impulse_fft,
             input_buffer: Vec::with_capacity(impulse.len()),
+            output_buf_2d: Array2::zeros((n_fast, n_slow)),
             fft_scratch: vec![Complex32::zero(); scratch_size],
             scratch2: vec![Complex32::zero(); impulse.len()],
             fast_time_rfft_plan,
@@ -117,7 +119,7 @@ impl Sonar {
             n_processed_samples: 0,
         }
     }
-    pub fn handle_input(&mut self, samples: &[f32]) {
+    pub fn handle_input(&mut self, samples: &[f32]) -> bool {
         assert!(
             samples.len() % CHUNK_SIZE == 0,
             "expected a multiple of 128 samples"
@@ -131,14 +133,22 @@ impl Sonar {
         if self.input_buffer.len() == self.impulse.len() {
             self.handle_impulse();
             self.input_buffer.clear();
+            return true;
+        } else {
+            return false;
         }
     }
     pub fn clutter(&self) -> Vec<f32> {
         self.range_doppler.clutter.iter().map(|x| x.abs()).collect()
     }
-    pub fn get_data_cube(&self) -> *const Complex32 {
-        assert!(self.range_doppler.data_cube.is_standard_layout());
-        self.range_doppler.data_cube.as_ptr()
+    pub fn get_data_cube(&self) -> Vec<f32> {
+        self.range_doppler
+            .data_cube
+            .as_slice()
+            .unwrap()
+            .into_iter()
+            .map(|x| x.abs())
+            .collect()
     }
 
     fn handle_impulse(&mut self) {
@@ -180,8 +190,8 @@ impl Sonar {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+
     #[test]
     fn test_input_buffer() {
         let mut sonar = Sonar::new(&[0.0; 512], 0.1);
@@ -210,15 +220,4 @@ mod tests {
         sonar.handle_input(&chunk3);
         assert_eq!(&chunk3, &sonar.input_buffer[0..128]);
     }
-
-    // #[test]
-    // fn test_xcorr() {
-    //     let fc = 17000.0;
-    //     let bandwidth = 4000.0;
-    //     let fs = 48000.0;
-    //     let n = 512;
-    //     let chirp = generate_chirp(fc, bandwidth, fs, n);
-    //     let mut sonar = Sonar::new(&chirp, fc / fs);
-    //     sonar.handle_input(&chirp);
-    // }
 }

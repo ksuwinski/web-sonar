@@ -4,10 +4,19 @@
     </head>
     <button id="button-start">start</button>
     <body>
-        <div style="position: relative; height: 40vh; width: 80vw">
+        <div
+            id="plot-container"
+            style="position: relative; height: 40vh; width: 80vw"
+        >
             <canvas id="myChart"></canvas>
         </div>
-        <canvas id="rangedoppler-canvas"></canvas>
+        <canvas
+            id="rangedoppler-canvas"
+            width="64"
+            height="20"
+            style="width: 640px; height: 200px; image-rendering: pixelated;"
+            <!-- style="width: 640px; height: 200px" -->
+        ></canvas>
         <script src="chart.js"></script>
         <script src="javascript/sonar.js" type="module"></script>
     </body>

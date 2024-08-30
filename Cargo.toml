@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 console_log = "1.0.0"
 log = "0.4.22"
-rustfft = {version="6.2.0", features=["wasm_simd"]}
+rustfft = { version = "6.2.0", features = ["wasm_simd"] }
 wasm-bindgen = "0.2.92"
 console_error_panic_hook = "0.1.7"
 realfft = "3.3.0"
@@ -22,6 +22,7 @@ crate-type = ["cdylib"]
 
 [profile.release]
 lto = true
+debug = true
 
 [dependencies.web-sys]
 version = "0.3.22"

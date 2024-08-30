@@ -11,6 +11,7 @@ wasm-bindgen = "0.2.92"
 console_error_panic_hook = "0.1.7"
 realfft = "3.3.0"
 ndarray = "0.16.0"
+itertools = "0.13.0"
 
 # cpal = { version="0.15.3", features=["wasm-bindgen"] }
 # rand = "0.8.5"

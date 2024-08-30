@@ -1,6 +1,8 @@
 use core::f32;
 use std::sync::Arc;
 
+use itertools::zip_eq;
+use log::debug;
 use ndarray::{s, Array2};
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::{
@@ -13,23 +15,6 @@ use wasm_bindgen::prelude::*;
 //TODO: don't assume this
 const CHUNK_SIZE: usize = 128;
 
-#[wasm_bindgen]
-pub struct Sonar {
-    impulse: Vec<f32>,
-    impulse_fft: Vec<Complex32>,
-    input_buffer: Vec<f32>,
-    fast_time_rfft_plan: Arc<dyn RealToComplex<f32>>,
-    // fast_time_fft_plan: Arc<dyn Fft<f32>>,
-    fast_time_ifft_plan: Arc<dyn Fft<f32>>,
-    fft_scratch: Vec<Complex32>,
-    scratch2: Vec<Complex32>,
-    negative_carrier: Vec<Complex32>,
-    decimation: usize,
-    range_doppler: RangeDopplerProcessor,
-    normalized_f_carrier: f32,
-    n_processed_samples: usize,
-    output_buf_2d: Array2<f32>,
-}
 struct RangeDopplerProcessor {
     impulse_counter: usize,
     clutter: Vec<Complex32>,
@@ -46,42 +31,67 @@ impl RangeDopplerProcessor {
         }
     }
 
-    // does this get inlined? or is the iterator passed around?
-    fn add_impulse_from_iter<A: Iterator<Item = Complex32>>(&mut self, impulse_iter: A) {
-        for ((x_row, x_impulse), x_clutter) in self
-            .data_cube
+    // // does this get inlined? or is the iterator passed around?
+    // fn add_impulse_from_iter<A: Iterator<Item = Complex32>>(&mut self, impulse_iter: A) {
+    //     for ((x_row, x_impulse), x_clutter) in self
+    //         .data_cube
+    //         .slice_mut(s![self.impulse_counter, ..])
+    //         .iter_mut()
+    //         .zip(impulse_iter)
+    //         .zip(self.clutter.iter_mut())
+    //     {
+    //         *x_row = x_impulse;
+    //         *x_clutter = (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * x_impulse;
+    //     }
+
+    //     if self.impulse_counter < self.data_cube.shape()[0] - 1 {
+    //         self.impulse_counter += 1;
+    //     } else {
+    //         self.impulse_counter = 0;
+    //     }
+    // }
+
+    fn input_buffer(&mut self) -> &mut [Complex32] {
+        self.data_cube
             .slice_mut(s![self.impulse_counter, ..])
-            .iter_mut()
-            .zip(impulse_iter)
-            .zip(self.clutter.iter_mut())
-        {
-            *x_row = x_impulse;
+            .into_slice()
+            .unwrap()
+    }
+
+    fn process_input(&mut self) {
+        let recent_impulse = self.data_cube.slice(s![self.impulse_counter, ..]);
+        for (x_impulse, x_clutter) in zip_eq(recent_impulse, &mut self.clutter) {
             *x_clutter = (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * x_impulse;
         }
 
-        if self.impulse_counter < self.data_cube.shape()[0] - 1 {
-            self.impulse_counter += 1;
-        } else {
+        self.impulse_counter += 1;
+        if self.impulse_counter == self.data_cube.shape()[0] {
             self.impulse_counter = 0;
         }
     }
 }
 
-#[wasm_bindgen]
-impl Sonar {
-    pub fn new(impulse: &[f32], normalized_f_carrier: f32) -> Self {
-        console_error_panic_hook::set_once();
+pub struct MatchedFilter {
+    input_length: usize,
+    decimation: usize,
+    impulse_fft: Vec<Complex32>,
+    fast_time_rfft_plan: Arc<dyn RealToComplex<f32>>,
+    fast_time_ifft_plan: Arc<dyn Fft<f32>>,
+    fft_scratch: Vec<Complex32>,
+    scratch2: Vec<Complex32>,
+    negative_carrier: Vec<Complex32>,
+}
 
-        let decimation = 8;
-
-        assert!(
-            impulse.len() % CHUNK_SIZE == 0,
-            "length of impulse must be a multiple of 128"
-        );
-        let mut real_planner = RealFftPlanner::new();
+impl MatchedFilter {
+    fn new(
+        impulse: &[f32],
+        normalized_f_carrier: f32,
+        decimation: usize,
+        complex_planner: &mut FftPlanner<f32>,
+        real_planner: &mut RealFftPlanner<f32>,
+    ) -> Self {
         let fast_time_rfft_plan = real_planner.plan_fft_forward(impulse.len());
 
-        let mut complex_planner = FftPlanner::new();
         // let fast_time_fft_plan = complex_planner.plan_fft_forward(impulse.len());
         let fast_time_ifft_plan = complex_planner.plan_fft_inverse(impulse.len());
 
@@ -99,63 +109,23 @@ impl Sonar {
             .map(|n| Complex32::cis(-2.0 * f32::consts::PI * (n as f32) * normalized_f_carrier))
             .collect();
 
-        let n_fast = impulse.len() / decimation;
-        let n_slow = 20;
-
-        Sonar {
-            impulse: impulse.to_vec(),
+        return Self {
+            input_length: impulse.len(),
             impulse_fft,
-            input_buffer: Vec::with_capacity(impulse.len()),
-            output_buf_2d: Array2::zeros((n_fast, n_slow)),
             fft_scratch: vec![Complex32::zero(); scratch_size],
             scratch2: vec![Complex32::zero(); impulse.len()],
             fast_time_rfft_plan,
-            // fast_time_fft_plan,
             fast_time_ifft_plan,
             negative_carrier,
             decimation,
-            range_doppler: RangeDopplerProcessor::new(n_slow, n_fast),
-            normalized_f_carrier,
-            n_processed_samples: 0,
-        }
-    }
-    pub fn handle_input(&mut self, samples: &[f32]) -> bool {
-        assert!(
-            samples.len() % CHUNK_SIZE == 0,
-            "expected a multiple of 128 samples"
-        );
-
-        self.input_buffer.extend_from_slice(samples);
-
-        // currently we require everything to be nicely aligned
-        assert!(self.input_buffer.len() <= self.impulse.len());
-
-        if self.input_buffer.len() == self.impulse.len() {
-            self.handle_impulse();
-            self.input_buffer.clear();
-            return true;
-        } else {
-            return false;
-        }
-    }
-    pub fn clutter(&self) -> Vec<f32> {
-        self.range_doppler.clutter.iter().map(|x| x.abs()).collect()
-    }
-    pub fn get_data_cube(&self) -> Vec<f32> {
-        self.range_doppler
-            .data_cube
-            .as_slice()
-            .unwrap()
-            .into_iter()
-            .map(|x| x.abs())
-            .collect()
+        };
     }
 
-    fn handle_impulse(&mut self) {
+    fn handle_impulse(&mut self, input_buffer: &mut [f32], output_buffer: &mut [Complex32]) {
         self.scratch2.fill(Complex32::ZERO);
         self.fast_time_rfft_plan
             .process_with_scratch(
-                &mut self.input_buffer,
+                input_buffer,
                 &mut self.scratch2[..257],
                 &mut self.fft_scratch,
             )
@@ -171,20 +141,99 @@ impl Sonar {
             .process_with_scratch(&mut self.scratch2, &mut self.fft_scratch);
         //scratch2 now contains xcorr
 
-        //save freq-shifted and decimated xcorr
-        // let extra_phase = Complex32::cis(
-        //     -2.0 * f32::consts::PI * (self.n_processed_samples as f32) * self.normalized_f_carrier,
-        // );
-        let decimated_xcorr_iter = self
-            .scratch2
-            .iter()
-            .step_by(self.decimation)
-            .zip(self.negative_carrier.iter().step_by(self.decimation))
-            .map(|(x_xcorr, x_cis)| x_xcorr * x_cis);
-        // .map(|(x_xcorr, x_cis)| x_xcorr * x_cis * extra_phase);
+        let decimated_xcorr_iter = zip_eq(
+            self.scratch2.iter().step_by(self.decimation),
+            self.negative_carrier.iter().step_by(self.decimation),
+        )
+        .map(|(x_xcorr, x_cis)| x_xcorr * x_cis);
+
+        for (xc, out) in zip_eq(decimated_xcorr_iter, output_buffer) {
+            *out = xc;
+        }
+
+        // self.range_doppler
+        //     .add_impulse_from_iter(decimated_xcorr_iter);
+    }
+
+    fn input_length(&self) -> usize {
+        self.input_length
+    }
+    // fn output_length(&self) -> usize {
+    //     self.impulse_fft.len() / self.decimation
+    // }
+}
+
+#[wasm_bindgen]
+pub struct Sonar {
+    input_buffer: Vec<f32>,
+    output_buf_2d: Array2<f32>,
+    range_doppler: RangeDopplerProcessor,
+    matched_filter: MatchedFilter,
+}
+#[wasm_bindgen]
+impl Sonar {
+    pub fn new(impulse: &[f32], normalized_f_carrier: f32) -> Self {
+        console_log::init_with_level(log::Level::Debug).unwrap();
+        console_error_panic_hook::set_once();
+        let decimation = 8;
+
+        let mut real_planner = RealFftPlanner::new();
+        let mut complex_planner = FftPlanner::new();
+
+        assert!(
+            impulse.len() % CHUNK_SIZE == 0,
+            "length of impulse must be a multiple of 128"
+        );
+
+        let n_fast = impulse.len() / decimation;
+        let n_slow = 20;
+
+        Sonar {
+            input_buffer: Vec::with_capacity(impulse.len()),
+            output_buf_2d: Array2::zeros((n_fast, n_slow)),
+            range_doppler: RangeDopplerProcessor::new(n_slow, n_fast),
+            matched_filter: MatchedFilter::new(
+                impulse,
+                normalized_f_carrier,
+                decimation,
+                &mut complex_planner,
+                &mut real_planner,
+            ),
+        }
+    }
+    pub fn handle_input(&mut self, samples: &[f32]) -> bool {
+        assert!(
+            samples.len() % CHUNK_SIZE == 0,
+            "expected a multiple of 128 samples"
+        );
+
+        self.input_buffer.extend_from_slice(samples);
+
+        // currently we require everything to be nicely aligned
+        assert!(self.input_buffer.len() <= self.matched_filter.input_length());
+
+        if self.input_buffer.len() < self.matched_filter.input_length() {
+            return false;
+        }
+        self.matched_filter.handle_impulse(
+            self.input_buffer.as_mut_slice(),
+            self.range_doppler.input_buffer(),
+        );
+        self.range_doppler.process_input();
+        self.input_buffer.clear();
+        return true;
+    }
+    pub fn clutter(&self) -> Vec<f32> {
+        self.range_doppler.clutter.iter().map(|x| x.abs()).collect()
+    }
+    pub fn get_data_cube(&self) -> Vec<f32> {
         self.range_doppler
-            .add_impulse_from_iter(decimated_xcorr_iter);
-        self.n_processed_samples += self.impulse.len();
+            .data_cube
+            .as_slice()
+            .unwrap()
+            .into_iter()
+            .map(|x| x.abs())
+            .collect()
     }
 }
 

@@ -1,9 +1,9 @@
 use core::f32;
-use std::sync::Arc;
+use std::{iter::zip, sync::Arc};
 
 use itertools::zip_eq;
 use log::debug;
-use ndarray::{s, Array2};
+use ndarray::{s, Array2, ArrayBase, Axis, Ix1};
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::{
     num_complex::{Complex32, ComplexFloat},
@@ -12,22 +12,83 @@ use rustfft::{
 };
 use wasm_bindgen::prelude::*;
 
+trait CopyInto<A> {
+    fn copy_into(&self, destination: A);
+}
+impl<A, D> CopyInto<&mut [A]> for ArrayBase<D, Ix1>
+where
+    A: Copy,
+    D: ndarray::Data<Elem = A>,
+{
+    fn copy_into(&self, destination: &mut [A]) {
+        // clone_into_iter(self.into_iter().copied(), destination);
+        for (dst, x) in zip_eq(destination, self) {
+            *dst = *x;
+        }
+    }
+}
+// impl<A, D> CopyInto<ArrayBase<D, Ix1>> for Vec<A>
+// where
+//     A: Copy,
+//     D: ndarray::DataMut<Elem = A>,
+// {
+//     fn copy_into(&self, destination: &mut ArrayBase<D, Ix1>) {
+//         for (dst, x) in zip_eq(destination.iter_mut(), self) {
+//             *dst = *x;
+//         }
+//     }
+// }
+
+// fn clone_into_iter<'a, A, I1, I2>(src: I1, dst: I2)
+// where
+//     A: 'a,
+//     I1: IntoIterator<Item = A>,
+//     I2: IntoIterator<Item = &'a mut A>,
+// {
+//     for x in zip_eq(dst.into_iter(), src.into_iter()) {
+//         let (dst, src): (&mut A, A) = x;
+//         *dst = src;
+//     }
+// }
+
+#[inline]
+fn fftshift_into<'a, A: 'a + Copy, I: IntoIterator<Item = &'a mut A>>(input: &[A], output: I) {
+    let mut output = output.into_iter();
+    let n = input.len();
+    let split_idx = if n % 2 == 0 { n / 2 } else { n / 2 + 1 };
+    for (x, out) in zip(&input[split_idx..], &mut output) {
+        *out = *x
+    }
+    for (x, out) in zip_eq(&input[..split_idx], &mut output) {
+        *out = *x
+    }
+}
+
 //TODO: don't assume this
 const CHUNK_SIZE: usize = 128;
 
+const SLOW_TIME_AXIS: Axis = Axis(0);
+const FAST_TIME_AXIS: Axis = Axis(1);
 struct RangeDopplerProcessor {
     impulse_counter: usize,
     clutter: Vec<Complex32>,
     clutter_alpha: f32,
     data_cube: Array2<Complex32>,
+    fft_buffer: Vec<Complex32>,
+    fft_scratch: Vec<Complex32>,
+    slow_time_fft_plan: Arc<dyn Fft<f32>>,
 }
 impl RangeDopplerProcessor {
-    fn new(n_slow: usize, n_fast: usize) -> Self {
+    fn new(n_slow: usize, n_fast: usize, fft_planner: &mut FftPlanner<f32>) -> Self {
+        let slow_time_fft_plan = fft_planner.plan_fft_forward(n_slow);
         Self {
             impulse_counter: 0,
             data_cube: Array2::zeros((n_slow, n_fast)),
             clutter: vec![Complex32::ZERO; n_fast],
-            clutter_alpha: 0.9,
+            fft_buffer: vec![Complex32::ZERO; n_slow],
+            fft_scratch: vec![Complex32::ZERO; slow_time_fft_plan.get_inplace_scratch_len()],
+            clutter_alpha: 0.001,
+            slow_time_fft_plan,
         }
     }
 
@@ -53,15 +114,20 @@ impl RangeDopplerProcessor {
 
     fn input_buffer(&mut self) -> &mut [Complex32] {
         self.data_cube
-            .slice_mut(s![self.impulse_counter, ..])
+            .index_axis_mut(SLOW_TIME_AXIS, self.impulse_counter)
             .into_slice()
             .unwrap()
     }
 
-    fn process_input(&mut self) {
-        let recent_impulse = self.data_cube.slice(s![self.impulse_counter, ..]);
-        for (x_impulse, x_clutter) in zip_eq(recent_impulse, &mut self.clutter) {
-            *x_clutter = (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * x_impulse;
+    fn next_impulse(&mut self) {
+        let mut recent_impulse = self
+            .data_cube
+            .index_axis_mut(SLOW_TIME_AXIS, self.impulse_counter);
+        // let recent_impulse = self.data_cube.slice(s![self.impulse_counter, ..]);
+        for (x_impulse, x_clutter) in zip_eq(&mut recent_impulse, &mut self.clutter) {
+            *x_clutter =
+                (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * *x_impulse;
+            *x_impulse -= *x_clutter;
         }
 
         self.impulse_counter += 1;
@@ -69,8 +135,25 @@ impl RangeDopplerProcessor {
             self.impulse_counter = 0;
         }
     }
-}
 
+    fn range_doppler(&mut self, output: &mut Array2<Complex32>) {
+        for (slow_time_slice, mut output_slice) in zip_eq(
+            self.data_cube.axis_iter(FAST_TIME_AXIS),
+            &mut output.axis_iter_mut(FAST_TIME_AXIS),
+        ) {
+            let n_slow = self.data_cube.len_of(SLOW_TIME_AXIS);
+            slow_time_slice
+                .slice(s![self.impulse_counter..])
+                .copy_into(&mut self.fft_buffer[..n_slow - self.impulse_counter]);
+            slow_time_slice
+                .slice(s![..self.impulse_counter])
+                .copy_into(&mut self.fft_buffer[n_slow - self.impulse_counter..]);
+            self.slow_time_fft_plan
+                .process_with_scratch(&mut self.fft_buffer, &mut self.fft_scratch);
+            fftshift_into(&self.fft_buffer, output_slice.iter_mut());
+        }
+    }
+}
 pub struct MatchedFilter {
     input_length: usize,
     decimation: usize,
@@ -166,7 +249,7 @@ impl MatchedFilter {
 #[wasm_bindgen]
 pub struct Sonar {
     input_buffer: Vec<f32>,
-    output_buf_2d: Array2<f32>,
+    range_doppler_output: Array2<Complex32>,
     range_doppler: RangeDopplerProcessor,
     matched_filter: MatchedFilter,
 }
@@ -190,8 +273,8 @@ impl Sonar {
 
         Sonar {
             input_buffer: Vec::with_capacity(impulse.len()),
-            output_buf_2d: Array2::zeros((n_fast, n_slow)),
-            range_doppler: RangeDopplerProcessor::new(n_slow, n_fast),
+            range_doppler_output: Array2::zeros((n_slow, n_fast)),
+            range_doppler: RangeDopplerProcessor::new(n_slow, n_fast, &mut complex_planner),
             matched_filter: MatchedFilter::new(
                 impulse,
                 normalized_f_carrier,
@@ -219,27 +302,44 @@ impl Sonar {
             self.input_buffer.as_mut_slice(),
             self.range_doppler.input_buffer(),
         );
-        self.range_doppler.process_input();
+        self.range_doppler.next_impulse();
         self.input_buffer.clear();
         return true;
     }
     pub fn clutter(&self) -> Vec<f32> {
         self.range_doppler.clutter.iter().map(|x| x.abs()).collect()
     }
-    pub fn get_data_cube(&self) -> Vec<f32> {
+    pub fn get_data_cube(&mut self) -> Vec<f32> {
         self.range_doppler
-            .data_cube
-            .as_slice()
-            .unwrap()
-            .into_iter()
-            .map(|x| x.abs())
-            .collect()
+            .range_doppler(&mut self.range_doppler_output);
+        self.range_doppler_output.iter().map(|x| x.abs()).collect()
+        // self.range_doppler
+        //     .data_cube
+        //     .as_slice()
+        //     .unwrap()
+        //     .into_iter()
+        //     .map(|x| x.abs())
+        //     .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn test_fftshift_even() {
+        let a = [1, 2, 3, 4, 5, 6];
+        let mut b = [0; 6];
+        fftshift_into(&a, &mut b);
+        assert_eq!(b, [4, 5, 6, 1, 2, 3]);
+    }
+    #[test]
+    fn test_fftshift_odd() {
+        let a = [1, 2, 3, 4, 5, 6, 7];
+        let mut b = [0; 7];
+        fftshift_into(&a, &mut b);
+        assert_eq!(b, [5, 6, 7, 1, 2, 3, 4]);
+    }
 
     #[test]
     fn test_input_buffer() {

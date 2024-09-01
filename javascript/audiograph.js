@@ -8,16 +8,12 @@ export class SonarAudioGraph {
   onWorkletMessage;
   sonarParameters;
 
-  constructor() {
+  constructor(sonarParameters) {
     this.initialized = false;
     this.onWorkletMessage = (ev) => {
       console.error("audio graph callback is not registered", ev);
     };
-    this.sonarParameters = {
-      impulseLength: 512,
-      fc: 17000,
-      bandwidth: 4000,
-    };
+    this.sonarParameters = sonarParameters;
   }
   async #initialize() {
     const impulseLength = this.sonarParameters.impulseLength;
@@ -36,6 +32,8 @@ export class SonarAudioGraph {
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
       normalizedCarrier,
+      decimation: this.sonarParameters.decimation,
+      n_slow: this.sonarParameters.n_slow,
     });
     this.sonarProcessor.port.onmessage = this.onWorkletMessage;
     this.micSource = await initAudioInput(this.audioContext);

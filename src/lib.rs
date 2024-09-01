@@ -192,7 +192,7 @@ impl MatchedFilter {
             .map(|n| Complex32::cis(-2.0 * f32::consts::PI * (n as f32) * normalized_f_carrier))
             .collect();
 
-        return Self {
+        Self {
             input_length: impulse.len(),
             impulse_fft,
             fft_scratch: vec![Complex32::zero(); scratch_size],
@@ -255,10 +255,14 @@ pub struct Sonar {
 }
 #[wasm_bindgen]
 impl Sonar {
-    pub fn new(impulse: &[f32], normalized_f_carrier: f32) -> Self {
+    pub fn new(
+        impulse: &[f32],
+        normalized_f_carrier: f32,
+        decimation: usize,
+        n_slow: usize,
+    ) -> Self {
         console_log::init_with_level(log::Level::Debug).unwrap();
         console_error_panic_hook::set_once();
-        let decimation = 8;
 
         let mut real_planner = RealFftPlanner::new();
         let mut complex_planner = FftPlanner::new();
@@ -269,7 +273,6 @@ impl Sonar {
         );
 
         let n_fast = impulse.len() / decimation;
-        let n_slow = 20;
 
         Sonar {
             input_buffer: Vec::with_capacity(impulse.len()),
@@ -304,7 +307,7 @@ impl Sonar {
         );
         self.range_doppler.next_impulse();
         self.input_buffer.clear();
-        return true;
+        true
     }
     pub fn clutter(&self) -> Vec<f32> {
         self.range_doppler.clutter.iter().map(|x| x.abs()).collect()
@@ -343,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_input_buffer() {
-        let mut sonar = Sonar::new(&[0.0; 512], 0.1);
+        let mut sonar = Sonar::new(&[0.0; 512], 0.1, 2, 1);
         let chunk1: Vec<f32> = (0..128).map(|x| x as f32).collect();
         let chunk2: Vec<f32> = (0..128).map(|x| (x * x) as f32).collect();
 

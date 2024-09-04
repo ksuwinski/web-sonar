@@ -2,7 +2,7 @@ use core::f32;
 use std::{iter::zip, sync::Arc};
 
 use itertools::zip_eq;
-use ndarray::{s, Array2, ArrayBase, Axis, Ix1};
+use ndarray::{s, Array2, ArrayBase, Axis, Ix1, Slice};
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::{
     num_complex::{Complex32, ComplexFloat},
@@ -11,6 +11,7 @@ use rustfft::{
 };
 use wasm_bindgen::prelude::*;
 
+#[allow(unused_imports)]
 use log::debug;
 
 trait CopyInto<A> {
@@ -93,26 +94,6 @@ impl RangeDopplerProcessor {
         }
     }
 
-    // // does this get inlined? or is the iterator passed around?
-    // fn add_impulse_from_iter<A: Iterator<Item = Complex32>>(&mut self, impulse_iter: A) {
-    //     for ((x_row, x_impulse), x_clutter) in self
-    //         .data_cube
-    //         .slice_mut(s![self.impulse_counter, ..])
-    //         .iter_mut()
-    //         .zip(impulse_iter)
-    //         .zip(self.clutter.iter_mut())
-    //     {
-    //         *x_row = x_impulse;
-    //         *x_clutter = (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * x_impulse;
-    //     }
-
-    //     if self.impulse_counter < self.data_cube.shape()[0] - 1 {
-    //         self.impulse_counter += 1;
-    //     } else {
-    //         self.impulse_counter = 0;
-    //     }
-    // }
-
     fn input_buffer(&mut self) -> &mut [Complex32] {
         self.data_cube
             .index_axis_mut(SLOW_TIME_AXIS, self.impulse_counter)
@@ -124,7 +105,7 @@ impl RangeDopplerProcessor {
         let mut recent_impulse = self
             .data_cube
             .index_axis_mut(SLOW_TIME_AXIS, self.impulse_counter);
-        // let recent_impulse = self.data_cube.slice(s![self.impulse_counter, ..]);
+
         for (x_impulse, x_clutter) in zip_eq(&mut recent_impulse, &mut self.clutter) {
             *x_clutter =
                 (1.0 - self.clutter_alpha) * (*x_clutter) + self.clutter_alpha * *x_impulse;
@@ -137,10 +118,32 @@ impl RangeDopplerProcessor {
         }
     }
 
-    fn range_doppler(&mut self, output: &mut Array2<Complex32>) {
+    fn get_fast_time_offset(&self) -> usize {
+        let mut max_value = -f32::INFINITY;
+        let mut max_n = 0;
+        for (n, x) in self.clutter.iter().enumerate() {
+            let x_abs = x.abs();
+            if x_abs > max_value {
+                max_value = x_abs;
+                max_n = n;
+            }
+        }
+        max_n
+    }
+
+    fn range_doppler_slice(
+        &mut self,
+        output: &mut Array2<Complex32>,
+        in_slice: Slice,
+        out_slice: Slice,
+    ) {
         for (slow_time_slice, mut output_slice) in zip_eq(
-            self.data_cube.axis_iter(FAST_TIME_AXIS),
-            &mut output.axis_iter_mut(FAST_TIME_AXIS),
+            self.data_cube
+                .slice_axis(FAST_TIME_AXIS, in_slice)
+                .axis_iter(FAST_TIME_AXIS),
+            output
+                .slice_axis_mut(FAST_TIME_AXIS, out_slice)
+                .axis_iter_mut(FAST_TIME_AXIS),
         ) {
             let n_slow = self.data_cube.len_of(SLOW_TIME_AXIS);
             slow_time_slice
@@ -153,6 +156,22 @@ impl RangeDopplerProcessor {
                 .process_with_scratch(&mut self.fft_buffer, &mut self.fft_scratch);
             fftshift_into(&self.fft_buffer, output_slice.iter_mut());
         }
+    }
+    fn range_doppler(&mut self, output: &mut Array2<Complex32>) {
+        let offset = self.get_fast_time_offset();
+        self.range_doppler_slice(
+            output,
+            Slice::from(offset..),
+            Slice::from(..self.n_fast() - offset),
+        );
+        self.range_doppler_slice(
+            output,
+            Slice::from(..offset),
+            Slice::from(self.n_fast() - offset..),
+        );
+    }
+    fn n_fast(&self) -> usize {
+        return self.data_cube.shape()[FAST_TIME_AXIS.0];
     }
 }
 pub struct MatchedFilter {
@@ -231,10 +250,8 @@ impl MatchedFilter {
         )
         .map(|(x_xcorr, x_cis)| x_xcorr * x_cis);
 
-        let mut n = 0;
         for (xc, out) in zip_eq(decimated_xcorr_iter, output_buffer) {
             *out = xc;
-            n += self.decimation;
         }
 
         // self.range_doppler

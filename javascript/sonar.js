@@ -8,7 +8,8 @@ class SonarApp {
   constructor() {
     this.rangeDopplerCanvas = document.getElementById("rangedoppler-canvas");
     this.buttonStart = document.getElementById("button-start");
-    this.inputLevelInd = document.getElementById("input-level-indicator");
+    this.inputLevelInd = document.getElementById("input-level-meter");
+    this.inputLevelLabel = document.getElementById("input-level-label");
     this.fcLabel = document.getElementById("center-freq-range-label");
     this.fcRange = document.getElementById("center-freq-range");
     this.bandwidthLabel = document.getElementById("bandwidth-range-label");
@@ -169,7 +170,8 @@ class SonarApp {
     const n_slow = this.sonarParameters.n_slow;
     this.rangedopplerdisplay.draw(fast_slow);
 
-    this.inputLevelInd.innerHTML = Math.round(ev.data.peak * 100);
+    this.inputLevelInd.value = ev.data.peak * 100;
+    this.inputLevelLabel.innerHTML = Math.round(ev.data.peak * 100);
   }
 }
 

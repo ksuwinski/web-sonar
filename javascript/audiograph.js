@@ -20,11 +20,16 @@ export class SonarAudioGraph {
     const fc = this.sonarParameters.fc;
     const bandwidth = this.sonarParameters.bandwidth;
 
-    this.audioContext = new AudioContext({ latencyHint: "playback" });
+    this.audioContext = new AudioContext({
+      latencyHint: "playback",
+      sampleRate: 44100,
+    });
 
     const fs = this.audioContext.sampleRate;
+    if (fs != 44100) {
+      console.error("wrong sample rate");
+    }
     const normalizedCarrier = fc / fs;
-    console.log("fs = %f", fs);
 
     const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
     this.chirpSource = initAudioOutput(this.audioContext, chirp);

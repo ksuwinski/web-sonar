@@ -2,7 +2,6 @@ use core::f32;
 use std::{iter::zip, sync::Arc};
 
 use itertools::zip_eq;
-use log::debug;
 use ndarray::{s, Array2, ArrayBase, Axis, Ix1};
 use realfft::{RealFftPlanner, RealToComplex};
 use rustfft::{
@@ -11,6 +10,8 @@ use rustfft::{
     Fft, FftPlanner,
 };
 use wasm_bindgen::prelude::*;
+
+use log::debug;
 
 trait CopyInto<A> {
     fn copy_into(&self, destination: A);
@@ -87,7 +88,7 @@ impl RangeDopplerProcessor {
             clutter: vec![Complex32::ZERO; n_fast],
             fft_buffer: vec![Complex32::ZERO; n_slow],
             fft_scratch: vec![Complex32::ZERO; slow_time_fft_plan.get_inplace_scratch_len()],
-            clutter_alpha: 0.001,
+            clutter_alpha: 0.01,
             slow_time_fft_plan,
         }
     }
@@ -201,7 +202,7 @@ impl MatchedFilter {
             fast_time_ifft_plan,
             negative_carrier,
             decimation,
-        };
+        }
     }
 
     fn handle_impulse(&mut self, input_buffer: &mut [f32], output_buffer: &mut [Complex32]) {
@@ -209,7 +210,7 @@ impl MatchedFilter {
         self.fast_time_rfft_plan
             .process_with_scratch(
                 input_buffer,
-                &mut self.scratch2[..257],
+                &mut self.scratch2[..self.fast_time_rfft_plan.complex_len()],
                 &mut self.fft_scratch,
             )
             .unwrap();
@@ -230,8 +231,10 @@ impl MatchedFilter {
         )
         .map(|(x_xcorr, x_cis)| x_xcorr * x_cis);
 
+        let mut n = 0;
         for (xc, out) in zip_eq(decimated_xcorr_iter, output_buffer) {
             *out = xc;
+            n += self.decimation;
         }
 
         // self.range_doppler
@@ -272,7 +275,7 @@ impl Sonar {
             "length of impulse must be a multiple of 128"
         );
 
-        let n_fast = impulse.len() / decimation;
+        let n_fast = impulse.len().div_ceil(decimation);
 
         Sonar {
             input_buffer: Vec::with_capacity(impulse.len()),

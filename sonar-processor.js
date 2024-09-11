@@ -1,5 +1,20 @@
 import "./polyfill.js";
-import init, { Sonar } from "./pkg/sonar.js";
+import init, { ClutterFilterOption, Sonar } from "./pkg/sonar.js";
+
+function parseFilterOption(option) {
+  switch (option) {
+    case "none":
+      return ClutterFilterOption.None;
+    case "two-pulse":
+      return ClutterFilterOption.TwoPulse;
+    case "slow":
+      return ClutterFilterOption.Slow;
+    case "remove-zero":
+      return ClutterFilterOption.RemoveZero;
+    default:
+      console.error("unknown clutter filter", option);
+  }
+}
 class SonarProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -15,6 +30,8 @@ class SonarProcessor extends AudioWorkletProcessor {
           ev.data.normalizedCarrier,
           ev.data.decimation,
           ev.data.n_slow,
+          ev.data.clutter_alpha,
+          parseFilterOption(ev.data.clutterFilterOption),
         );
         console.log("initialized");
         this.wasm_ready = true;
@@ -32,18 +49,18 @@ class SonarProcessor extends AudioWorkletProcessor {
     }
 
     // for (let channel = 0; channel < input.length; ++channel) {
+    // }
     this.sonar.handle_input(input[0]);
     this.peak = Math.max(
       this.peak * (1 - this.peak_decay),
       Math.max(...input[0]),
     );
-    // }
 
     if (this.n % (((512 / 128) * 20) / 4) == 0) {
       this.port.postMessage({
         peak: this.peak,
-        clutter: this.sonar.clutter(),
         fast_slow: this.sonar.get_data_cube(),
+        // clutter: this.sonar.clutter(),
       });
     }
     this.n += 1;

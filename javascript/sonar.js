@@ -6,6 +6,7 @@ const speed_of_sound = 343;
 
 class SonarApp {
   constructor() {
+    this.settingsForm = document.getElementById("settings-form");
     this.rangeDopplerCanvas = document.getElementById("rangedoppler-canvas");
     this.buttonStart = document.getElementById("button-start");
     this.inputLevelInd = document.getElementById("input-level-meter");
@@ -22,14 +23,35 @@ class SonarApp {
       "velocity-resolution-label",
     );
     this.cpiLabel = document.getElementById("CPI-label");
+    this.prfLabel = document.getElementById("prf-label");
     this.wavelengthLabel = document.getElementById("wavelength-label");
     this.rangeAxisTicks = document.getElementById("range-axis-ticks");
     this.velocityAxisTicks = document.getElementById("velocity-axis-ticks");
+    this.rangeAmbiguityLabel = document.getElementById("range-ambiguity-label");
+    this.velocityAmbiguityLabel = document.getElementById(
+      "velocity-ambiguity-label",
+    );
+    this.maxMigrationlessVelocityLabel = document.getElementById(
+      "max-migrationless-velocity-label",
+    );
+    this.maxMigrationlessVelocityCellUnitsLabel = document.getElementById(
+      "max-migrationless-velocity-cell-units-label",
+    );
+    this.rangeVelocityCouplingLabel = document.getElementById(
+      "range-velocity-coupling-label",
+    );
+    this.cellUnitRvCouplingLabel = document.getElementById(
+      "cell-unit-rv-coupling-label",
+    );
 
     this.rangedopplerdisplay = new RangeDopplerDisplay(this.rangeDopplerCanvas);
 
     this.fcRange.onchange = () => this.updateParams();
     this.bandwidthRange.onchange = () => this.updateParams();
+    const radios = document.querySelectorAll(".clutter-filter-settings input");
+    for (const radio of radios) {
+      radio.onchange = () => this.updateParams();
+    }
     this.updateParams();
     console.log(this.sonarParameters);
 
@@ -40,7 +62,10 @@ class SonarApp {
     // } else {
     //   document.getElementById("plot-container").style.display = "none";
     // }
-    this.buttonStart.addEventListener("click", () => this.toggleState());
+    this.buttonStart.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      this.toggleState();
+    });
 
     window.addEventListener("resize", () => this.onScreenResize());
     this.onScreenResize();
@@ -57,42 +82,81 @@ class SonarApp {
     const bandwidth = bandwidthList[this.bandwidthRange.value];
     const fs = 44100;
 
-    const decimation = Math.floor(fs / (bandwidth * 1.3));
-    this.bandwidthLabel.innerHTML = bandwidth;
-
     const fc_step = 500;
-    this.fcRange.min = Math.ceil(bandwidth / 2 / fc_step) * fc_step;
-    this.fcRange.max = Math.floor((fs / 2 - bandwidth / 2) / fc_step) * fc_step;
+    this.fcRange.min = Math.ceil((bandwidth * 1.3) / 2 / fc_step) * fc_step;
+    this.fcRange.max =
+      Math.floor((fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
     const fc = Number(this.fcRange.value);
-    this.fcLabel.innerHTML = fc;
 
-    this.decimationLabel.innerHTML = decimation;
+    const clutterFilterOption = this.settingsForm.clutterfilter.value;
 
+    const decimation = Math.floor(fs / (bandwidth * 1.3));
     const impulseLength = 512;
     const n_slow = 20;
     const n_fast = Math.ceil(impulseLength / decimation);
-    this.rangedopplerdisplay.updateDimensions(n_fast, n_slow);
 
-    const rangeResolution = (speed_of_sound / fs) * decimation;
-    this.rangeResolution = rangeResolution;
+    const impulseDuration = impulseLength / fs;
+    const PRF = 1 / impulseDuration;
 
     const wavelength = speed_of_sound / fc;
-
     const CPI = (impulseLength * n_slow) / fs;
     const dopplerResolution = 1 / CPI;
-    const velocityResolution = dopplerResolution * wavelength;
-    this.velocityResolution = velocityResolution;
-    this.wavelengthLabel.innerHTML = `wavelength: ${(wavelength * 100).toFixed(2)} cm`;
-    this.rangeResolutionLabel.innerHTML = (rangeResolution * 100).toFixed(2);
-    this.velocityResolutionLabel.innerHTML = `velocity cell spacing: ${(velocityResolution * 100).toFixed(2)} cm/s`;
-    this.cpiLabel.innerHTML = `coherent processing interval: ${(CPI * 1000).toFixed(0)} ms`;
 
+    const rangeAmbiguity = impulseDuration * speed_of_sound;
+    const dopplerAmbiguity = 0.5 / impulseDuration; // 0.5 because we must distinguish negative from positive
+    const velocityAmbiguity = dopplerAmbiguity * wavelength;
+
+    this.rangeResolution = (speed_of_sound / fs) * decimation;
+    this.velocityResolution = dopplerResolution * wavelength;
+
+    this.bandwidthLabel.innerHTML = bandwidth;
+    this.fcLabel.innerHTML = fc;
+    this.decimationLabel.innerHTML = decimation;
+    this.wavelengthLabel.innerHTML = (wavelength * 100).toFixed(2);
+    this.rangeResolutionLabel.innerHTML = (this.rangeResolution * 100).toFixed(
+      2,
+    );
+    this.velocityResolutionLabel.innerHTML = (
+      this.velocityResolution * 100
+    ).toFixed(2);
+    this.cpiLabel.innerHTML = (CPI * 1000).toFixed(0);
+    this.prfLabel.innerHTML = PRF.toFixed(0);
+    this.rangeAmbiguityLabel.textContent = rangeAmbiguity.toFixed(2);
+    this.velocityAmbiguityLabel.textContent = velocityAmbiguity.toFixed(2);
+    this.maxMigrationlessVelocityLabel.textContent = (
+      (this.rangeResolution / CPI) *
+      100
+    ).toFixed(1);
+    this.maxMigrationlessVelocityCellUnitsLabel.textContent = (
+      this.rangeResolution /
+      CPI /
+      this.velocityResolution
+    ).toFixed(1);
+    // this.rangeVelocityCouplingLabel.textContent = ();
+
+    // chirpRate*delta_t = delta_f
+    // chirpRate*delta_r / c = delta_f
+    // delta_r = delta_f*c/chirp_rate
+    //         = delta_v/wavelength * c/chirp_rate
+    //         = delta_v/(c/fc) * c/chirp_rate
+    //         = delta_v * fc/chirp_rate
+    //         = delta_v * fc/B * T
+    const rangeVelocityCoupling = (fc / bandwidth) * impulseDuration;
+    this.rangeVelocityCouplingLabel.textContent = (
+      rangeVelocityCoupling * 100
+    ).toFixed(2);
+    const cellUnitRvCoupling =
+      (rangeVelocityCoupling / this.rangeResolution) * this.velocityResolution;
+    this.cellUnitRvCouplingLabel.textContent = cellUnitRvCoupling.toFixed(3);
+
+    this.rangedopplerdisplay.updateDimensions(n_fast, n_slow);
     this.sonarParameters = {
       impulseLength,
       fc,
       bandwidth,
       decimation,
       n_slow,
+      clutterFilterOption,
     };
     if (this.audio_graph && this.audio_graph.audioContext) {
       this.audio_graph.audioContext.close();

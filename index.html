@@ -2,8 +2,15 @@
     <head>
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
         <style>
+        <!-- this is bad -->
         html {
             font-family: Arial, Helvetica, sans-serif;
+        }
+        .page-title {
+            text-align: center;
+        }
+        .info-section h1 {
+            font-size: large;
         }
         #rangedoppler-canvas {
             background-color: black;
@@ -19,8 +26,17 @@
             display: flex;
             margin-top: 10px;
         }
+        .settings {
+            width: 50%;
+        }
+        .setting-value, .info-value {
+            font-weight: bold;
+        }
         .velocity-axis-label, .range-axis-label {
             font-size: large;
+        }
+        .info-multiple-values{
+            margin-left: 2em;
         }
         .velocity-axis-label {
             writing-mode: vertical-lr;
@@ -51,7 +67,7 @@
         #button-start {
             margin-right: 20px;
         }
-        label {
+        .form-group label {
             display: block;
         }
         input{
@@ -61,13 +77,7 @@
             width:200px;
         }
         .info-container {
-            text-align: right;
-            float:right;
-            width: 50%;
-        }
-        .settings {
-            width: 50%;
-            float:left;
+            margin-left: auto;
         }
         .info-item {
             margin-bottom: 5px;
@@ -82,6 +92,7 @@
         >
             <canvas id="myChart"></canvas>
         </div> -->
+        <h1 class="page-title">Online sonar demonstrator (epic)</h1>
         <div class="rd-plot-container">
             <div class="velocity-axis-label">bistatic velocity</div>
             <div id="velocity-axis-ticks"></div>
@@ -97,7 +108,7 @@
         </div>
 
         <div class="settings-and-info">
-            <div class="settings">
+            <form class="settings" id="settings-form">
                 <div class="controls">
                     <button id="button-start">start</button>
                     <div>peak input level: <meter id="input-level-meter" min="0" max="100" low="40" high="90"></meter> <span id="input-level-label">0</span>%</div>
@@ -120,15 +131,104 @@
                         <option value="5"></option>
                     </datalist>
                 </div>
-            </div>
+
+                <fieldset class="clutter-filter-settings">
+                  <legend>Clutter filtering</legend>
+
+                  <div>
+                    <input type="radio" name="clutterfilter" value="none" />
+                    <label for="huey">None</label>
+                  </div>
+                  <div>
+                    <input type="radio" name="clutterfilter" value="two-pulse" />
+                    <label for="huey">Two-pulse canceller</label>
+                  </div>
+                  <div>
+                    <input type="radio" name="clutterfilter" value="slow" checked />
+                    <label for="huey">Subtract clutter map</label>
+                  </div>
+                  <div>
+                    <input type="radio" name="clutterfilter" value="remove-zero" />
+                    <label for="huey">Remove the v=0 slice</label>
+                  </div>
+                </fieldset>
+            </form>
             <div class="info-container">
-                <div class="info-item">decimation: <span class="info-value" id="decimation-label"></span></div>
-                <div class="info-item">range resolution: <span class="info-value" id="range-resolution-label"></span> cm</div>
-                <div class="info-item" id="velocity-resolution-label">range resolution</div>
-                <div class="info-item" id="CPI-label">CPI</div>
-                <div class="info-item" id="wavelength-label">CPI</div>
+                <div class="info-section">
+                    <h1>Basic radar parameters</h1>
+                    <div class="info-item">
+                        range resolution:
+                        <span class="info-value" id="range-resolution-label"></span>
+                        cm
+                    </div>
+                    <div class="info-item">
+                        velocity resolution:
+                        <span class="info-value" id="velocity-resolution-label"></span>
+                        cm/s
+                    </div>
+                    <div class="info-item">
+                        range ambiguity:
+                        <span class="info-value" id="range-ambiguity-label"></span>
+                        m
+                    </div>
+                    <div class="info-item">
+                        velocity ambiguity:
+                        <span class="info-value" id="velocity-ambiguity-label"></span>
+                        m/s
+                    </div>
+                    <div class="info-item">
+                        pulse repetition frequency:
+                        <span class="info-value" id="prf-label"></span>
+                        Hz
+                    </div>
+                    <div class="info-item">
+                        coherent processing interval:
+                        <span class="info-value" id="CPI-label"></span>
+                        ms
+                    </div>
+                    <div class="info-item">
+                        wavelength:
+                        <span class="info-value" id="wavelength-label"></span>
+                        cm
+                    </div>
+                </div>
+                <div class="info-section">
+                    <h1>Advanced info</h1>
+                    <div class="info-item">
+                        range migration over one CPI:
+                        <div class="info-multiple-values">
+                            <div class="multiple-values-option">
+                                1 R cell per
+                                <span class="info-value" id="max-migrationless-velocity-label"></span>
+                                cm/s
+                            </div>
+                            <div class="multiple-values-option">
+                                1 R cell per
+                                <span class="info-value" id="max-migrationless-velocity-cell-units-label"></span>
+                                V cells
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-item">range-velocity coupling:
+                        <div class="info-multiple-values">
+                            <div class="multiple-values-option">
+                                <span class="info-value" id="range-velocity-coupling-label"></span>
+                                cm per m/s
+                            </div>
+                            <div class="multiple-values-option">
+                                <span class="info-value" id="cell-unit-rv-coupling-label"></span>
+                                R cell per V cell
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        decimation:
+                        <span class="info-value" id="decimation-label"></span>
+                    </div>
+                </div>
             </div>
         </div>
+        <img src="sonar.svg"></object>
         <script src="chart.js"></script>
         <script src="javascript/sonar.js" type="module"></script>
     </body>

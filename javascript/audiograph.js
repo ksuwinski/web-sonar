@@ -39,6 +39,8 @@ export class SonarAudioGraph {
       normalizedCarrier,
       decimation: this.sonarParameters.decimation,
       n_slow: this.sonarParameters.n_slow,
+      clutterFilterOption: this.sonarParameters.clutterFilterOption,
+      clutter_alpha: 0.1,
     });
     this.sonarProcessor.port.onmessage = this.onWorkletMessage;
     this.micSource = await initAudioInput(this.audioContext);

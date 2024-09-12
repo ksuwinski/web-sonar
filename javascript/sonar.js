@@ -15,6 +15,8 @@ class SonarApp {
     this.fcRange = document.getElementById("center-freq-range");
     this.bandwidthLabel = document.getElementById("bandwidth-range-label");
     this.bandwidthRange = document.getElementById("bandwidth-range");
+    this.nSlowLabel = document.getElementById("n-slow-range-label");
+    this.nSlowRange = document.getElementById("n-slow-range");
     this.decimationLabel = document.getElementById("decimation-label");
     this.rangeResolutionLabel = document.getElementById(
       "range-resolution-label",
@@ -43,6 +45,9 @@ class SonarApp {
     this.cellUnitRvCouplingLabel = document.getElementById(
       "cell-unit-rv-coupling-label",
     );
+    this.integrationGainLabel = document.getElementById(
+      "integration-gain-label",
+    );
     this.offsetCheckbox = document.getElementById("offset-checkbox");
 
     this.rangedopplerdisplay = new RangeDopplerDisplay(this.rangeDopplerCanvas);
@@ -50,6 +55,7 @@ class SonarApp {
     this.fcRange.onchange = () => this.updateParams();
     this.bandwidthRange.onchange = () => this.updateParams();
     this.offsetCheckbox.onchange = () => this.updateParams();
+    this.nSlowRange.onchange = () => this.updateParams();
     const radios = document.querySelectorAll(".clutter-filter-settings input");
     for (const radio of radios) {
       radio.onchange = () => this.updateParams();
@@ -89,13 +95,18 @@ class SonarApp {
       Math.floor((fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
     const fc = Number(this.fcRange.value);
 
-    const clutterFilterOption = this.settingsForm.clutterfilter.value;
+    const impulseLength = 512;
 
+    const max_CPI = 1;
+    const max_n_slow = (max_CPI * fs) / impulseLength;
+    this.nSlowRange.max = max_n_slow;
+    const n_slow = this.nSlowRange.value;
+    this.nSlowLabel.textContent = n_slow;
+
+    const clutterFilterOption = this.settingsForm.clutterfilter.value;
     const track_offset = this.offsetCheckbox.checked;
 
     const decimation = Math.floor(fs / (bandwidth * 1.3));
-    const impulseLength = 512;
-    const n_slow = 20;
     const n_fast = Math.ceil(impulseLength / decimation);
 
     const impulseDuration = impulseLength / fs;
@@ -108,6 +119,8 @@ class SonarApp {
     const rangeAmbiguity = impulseDuration * speed_of_sound;
     const dopplerAmbiguity = 0.5 / impulseDuration; // 0.5 because we must distinguish negative from positive
     const velocityAmbiguity = dopplerAmbiguity * wavelength;
+
+    const integrationGain = 10 * Math.log10(bandwidth * CPI);
 
     this.rangeResolution = (speed_of_sound / fs) * decimation;
     this.velocityResolution = dopplerResolution * wavelength;
@@ -126,6 +139,7 @@ class SonarApp {
     this.prfLabel.innerHTML = PRF.toFixed(0);
     this.rangeAmbiguityLabel.textContent = rangeAmbiguity.toFixed(2);
     this.velocityAmbiguityLabel.textContent = velocityAmbiguity.toFixed(2);
+    this.integrationGainLabel.textContent = integrationGain.toFixed(2);
     this.maxMigrationlessVelocityLabel.textContent = (
       (this.rangeResolution / CPI) *
       100

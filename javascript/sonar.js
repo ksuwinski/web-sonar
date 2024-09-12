@@ -100,7 +100,7 @@ class SonarApp {
     const max_CPI = 1;
     const max_n_slow = (max_CPI * fs) / impulseLength;
     this.nSlowRange.max = max_n_slow;
-    const n_slow = this.nSlowRange.value;
+    const n_slow = Number(this.nSlowRange.value);
     this.nSlowLabel.textContent = n_slow;
 
     const clutterFilterOption = this.settingsForm.clutterfilter.value;

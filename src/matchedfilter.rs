@@ -4,7 +4,6 @@ use rustfft::{num_complex::Complex32, num_traits::Zero, Fft, FftPlanner};
 use std::sync::Arc;
 
 pub struct MatchedFilter {
-    input_length: usize,
     decimation: usize,
     impulse_fft: Vec<Complex32>,
     fast_time_rfft_plan: Arc<dyn RealToComplex<f32>>,
@@ -44,7 +43,6 @@ impl MatchedFilter {
             .collect();
 
         Self {
-            input_length: impulse.len(),
             impulse_fft,
             fft_scratch: vec![Complex32::zero(); scratch_size],
             scratch2: vec![Complex32::zero(); impulse.len()],
@@ -88,12 +86,4 @@ impl MatchedFilter {
         // self.range_doppler
         //     .add_impulse_from_iter(decimated_xcorr_iter);
     }
-
-    pub fn input_length(&self) -> usize {
-        self.input_length
-    }
-
-    // fn output_length(&self) -> usize {
-    //     self.impulse_fft.len() / self.decimation
-    // }
 }

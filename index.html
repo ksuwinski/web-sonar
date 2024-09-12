@@ -75,7 +75,7 @@
             display: flex;
             align-items: center;
         }
-        .controls, .range-setting, .checkbox-setting{
+        .controls, .range-setting, .checkbox-setting, fieldset{
             margin-bottom: 10px;
         }
         input[type=range] {
@@ -102,7 +102,7 @@
         >
             <canvas id="myChart"></canvas>
         </div> -->
-        <h1 class="page-title">Online sonar demonstrator (epic)</h1>
+        <h1 class="page-title">Pulse-doppler sonar demo</h1>
         <div class="rd-plot-container">
             <div class="velocity-axis-label">bistatic velocity</div>
             <div id="velocity-axis-ticks"></div>
@@ -118,7 +118,7 @@
         </div>
 
         <div class="settings-and-info">
-            <form class="settings" id="settings-form">
+            <div class="settings">
                 <div class="controls">
                     <button id="button-start">start</button>
                     <div>peak input level: <meter id="input-level-meter" min="0" max="100" low="40" high="90"></meter> <span id="input-level-label">0</span>%</div>
@@ -151,11 +151,12 @@
                     <input id="n-slow-range" type="range" min="1" max="200" step="1" value="20">
                 </div>
 
-                <div class="checkbox-setting">
-                    <label for="offset-checkbox">compensate audio delay:</label>
-                    <input id="offset-checkbox" type="checkbox" checked>
+                <div class="range-setting">
+                    <label for="chirp-length-range">chirp length: <span class="setting-value" id="chirp-length-range-label"></span></label>
+                    <input id="chirp-length-range" type="range" min="1" max="8192" step="1" value="512">
                 </div>
-
+            </div>
+            <form class="settings" id="settings-form">
                 <fieldset class="clutter-filter-settings">
                   <legend
                       class="hoverable"
@@ -180,6 +181,15 @@
                     <label for="clutterfilter-option-removezero">Remove the v=0 slice</label>
                   </div>
                 </fieldset>
+                <div class="checkbox-setting">
+                    <label
+                        for="offset-checkbox"
+                        class="hoverable"
+                        title="Shift the range axis so that the strongest echo (corresponding to the direct speaker-mic path) is at R=0">
+                            compensate audio delay:
+                    </label>
+                    <input id="offset-checkbox" type="checkbox" checked>
+                </div>
             </form>
             <!-- <div class="info-container"> -->
                 <div class="info-section">
@@ -269,8 +279,9 @@
             An online demonstration of pulse-doppler radar, using sound instead of radio waves.
             <h1>How to use it?</h1>
             <p>
-                Press the start button, and make sure that the sound output is enabled. Don't use headphones.
+                Press the start button, and make sure that sound output is enabled on your computer. Don't use headphones.
                 By default, the sonar emits sound at near-ultrasound frequencies, so you may not hear anything, but you should see the 'peak input level' value increase.
+                You may have to adjust volume and microphone sensitivity to get good results.
             </p>
             <p>
                 The range-doppler plot has two axes: bistatic range and bistatic velocity.
@@ -287,17 +298,17 @@
                 <li>Move your hand around (not too fast) and see its echo appear.</li>
                 <li>Stand far away from the computer and move a flat object back and forth, facing the sonar.</li>
                 <li>Move one hand forward towards the microphone, and the other hand backward, and see if you can detect two echos at the same range but different velocities.</li>
-                <li>If you're using a laptop, try connecting it to an <b>external speaker</b>. This way you should have more control over the direction of the transmitter beam.</li>
-                <li>Make a <a href="https://en.wikipedia.org/wiki/Corner_reflector">corner reflector</a>.</li>
+                <li>If you're using a laptop, try connecting it to an <b>external speaker</b>. This way you should have more control over the direction of the transmitter beam. First experiment with the speaker and microphone pointing in the same direction.</li>
                 <li>Point the speaker at the ceiling or a wall and try to detect an indirect echo (one that bounces off the ceiling and then off a moving object).</li>
+                <li>Try using different objects as reflectors. Try to make a <a href="https://en.wikipedia.org/wiki/Corner_reflector">corner reflector</a>.</li>
                 <li>Experiment with <b>bandwidth</b>: more bandwidth gives better range resolution.</li>
                 <li>Use the sonar in a big room or an <b>open space</b>. You should see much fewer indirect echos.</li>
-                <li>disable clutter filtering and audio delay compensations, connect headphones to your computer, and observe the direct-path signal between the headphones and the microphone.</li>
+                <li>Disable clutter filtering and audio delay compensation, connect headphones to your computer, and observe the direct-path signal between the headphones and the microphone.</li>
             </ul>
 
             <h1>How does it work?</h1>
             Soon there will be a blog post discussing this sonar in greater detail.
-            You can read about pulse-doppler radar in books such as Fundamentals of Radar Signal Processing by Richards, or the classic Radar Handbook by Skolnik.
+            You can also read about pulse-doppler radar in books like as <cite>M. Richards, Fundamentals of Radar Signal Processing</cite>, or the classic <cite>M. Skolnik, Radar Handbook</cite> (and also <cite>Introduction to Radar Systems</cite>).
             <figure>
                 <img src="sonar.svg"></object>
                 <figcaption>Block diagram of the sonar</figcaption>

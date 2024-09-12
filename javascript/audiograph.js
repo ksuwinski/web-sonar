@@ -37,10 +37,11 @@ export class SonarAudioGraph {
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
       normalizedCarrier,
+      clutter_alpha: 0.1,
       decimation: this.sonarParameters.decimation,
       n_slow: this.sonarParameters.n_slow,
       clutterFilterOption: this.sonarParameters.clutterFilterOption,
-      clutter_alpha: 0.1,
+      track_offset: this.sonarParameters.track_offset,
     });
     this.sonarProcessor.port.onmessage = this.onWorkletMessage;
     this.micSource = await initAudioInput(this.audioContext);

@@ -2,7 +2,6 @@
     <head>
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
         <style>
-        <!-- this is bad -->
         html {
             font-family: Arial, Helvetica, sans-serif;
         }
@@ -67,10 +66,14 @@
         #button-start {
             margin-right: 20px;
         }
-        .form-group label {
+        .range-setting label {
             display: block;
         }
-        input{
+        .checkbox-setting {
+            display: flex;
+            align-items: center;
+        }
+        .controls, .range-setting, .checkbox-setting{
             margin-bottom: 10px;
         }
         input[type=range] {
@@ -81,6 +84,9 @@
         }
         .info-item {
             margin-bottom: 5px;
+        }
+        .hoverable {
+            border-bottom: dotted 1px gray;
         }
         </style>
     </head>
@@ -114,13 +120,17 @@
                     <div>peak input level: <meter id="input-level-meter" min="0" max="100" low="40" high="90"></meter> <span id="input-level-label">0</span>%</div>
                 </div>
 
-                <div class="form-group">
+                <div class="range-setting">
                     <label for="center-freq-range">center frequency: <span class="setting-value" id="center-freq-range-label"></span> Hz</label>
                     <input id="center-freq-range" type="range" min="1000" max="22000" step="500" value="18000">
                 </div>
 
-                <div class="form-group">
-                    <label for="bandwidth-range">nominal bandwidth: <span class="setting-value" id="bandwidth-range-label"></span> Hz</label>
+                <div class="range-setting">
+                    <label for="bandwidth-range">
+                        <span class="hoverable" title="difference between initial and final frequency of the chirp">nominal bandwidth</span>:
+                        <span class="setting-value" id="bandwidth-range-label"></span>
+                        Hz
+                    </label>
                     <input id="bandwidth-range" type="range" min="0" max="5" step="1" list="markers" value="2">
                     <datalist id="markers">
                         <option value="0"></option>
@@ -132,24 +142,33 @@
                     </datalist>
                 </div>
 
+                <div class="checkbox-setting">
+                    <label for="offset-checkbox">compensate audio delay:</label>
+                    <input id="offset-checkbox" type="checkbox" checked>
+                </div>
+
                 <fieldset class="clutter-filter-settings">
-                  <legend>Clutter filtering</legend>
+                  <legend
+                      class="hoverable"
+                      title="Clutter filter removes stationary echoes from walls and from the direct path between speaker and microphone.">
+                      Clutter filtering
+                  </legend>
 
                   <div>
-                    <input type="radio" name="clutterfilter" value="none" />
-                    <label for="huey">None</label>
+                    <input id="clutterfilter-option-none" type="radio" name="clutterfilter" value="none" />
+                    <label for="clutterfilter-option-none">None</label>
                   </div>
                   <div>
-                    <input type="radio" name="clutterfilter" value="two-pulse" />
-                    <label for="huey">Two-pulse canceller</label>
+                    <input id="clutterfilter-option-twopulse" type="radio" name="clutterfilter" value="two-pulse" />
+                    <label for="clutterfilter-option-twopulse">Two-pulse canceller</label>
                   </div>
                   <div>
-                    <input type="radio" name="clutterfilter" value="slow" checked />
-                    <label for="huey">Subtract clutter map</label>
+                    <input id="clutterfilter-option-slow" type="radio" name="clutterfilter" value="slow" checked />
+                    <label for="clutterfilter-option-slow" class="hoverable" title="create a coherent clutter map using exponential moving average filter, and subtract the map from each impulse">Subtract clutter map</label>
                   </div>
                   <div>
-                    <input type="radio" name="clutterfilter" value="remove-zero" />
-                    <label for="huey">Remove the v=0 slice</label>
+                    <input id="clutterfilter-option-removezero" type="radio" name="clutterfilter" value="remove-zero" />
+                    <label for="clutterfilter-option-removezero">Remove the v=0 slice</label>
                   </div>
                 </fieldset>
             </form>
@@ -157,32 +176,35 @@
                 <div class="info-section">
                     <h1>Basic radar parameters</h1>
                     <div class="info-item">
-                        range resolution:
+                        <span class="hoverable" title="width of a single cell in the range-doppler map">range resolution</span>:
                         <span class="info-value" id="range-resolution-label"></span>
                         cm
                     </div>
                     <div class="info-item">
-                        velocity resolution:
+                        <span class="hoverable" title="height of a single cell in the range-doppler map">velocity resolution</span>:
                         <span class="info-value" id="velocity-resolution-label"></span>
                         cm/s
                     </div>
                     <div class="info-item">
-                        range ambiguity:
+                        <span class="hoverable" title="maximum value of bistatic range, bigger ranges loop back to zero">range ambiguity:/span>:
                         <span class="info-value" id="range-ambiguity-label"></span>
                         m
                     </div>
                     <div class="info-item">
-                        velocity ambiguity:
+                        <span class="hoverable"
+                              title="maximum value of velocity, greater values cause aliasing (looping to the opposite edge of range-doppler map)"
+                        > velocity ambiguity
+                        </span>:
                         <span class="info-value" id="velocity-ambiguity-label"></span>
                         m/s
                     </div>
                     <div class="info-item">
-                        pulse repetition frequency:
+                        <span class="hoverable" title="the frequency at which consecutive chirps are played">pulse repetition frequency</span>:
                         <span class="info-value" id="prf-label"></span>
                         Hz
                     </div>
                     <div class="info-item">
-                        coherent processing interval:
+                        <span class="hoverable" title="total duration of input processed to obtain a range-doppler map&#10;(chirp duration × chirps per CPI)">coherent processing interval</span>:
                         <span class="info-value" id="CPI-label"></span>
                         ms
                     </div>

@@ -59,6 +59,7 @@ impl Sonar {
         n_slow: usize,
         clutter_alpha: f32,
         filter_option: ClutterFilterOption,
+        track_offset: bool,
     ) -> Self {
         console_log::init_with_level(log::Level::Debug).unwrap();
         console_error_panic_hook::set_once();
@@ -86,8 +87,8 @@ impl Sonar {
             ),
             clutter_filter: Self::create_filter(n_fast, filter_option),
             clutter_map: ClutterMap::new(n_fast, clutter_alpha),
-            track_offset: true,
             remove_zero: filter_option == ClutterFilterOption::RemoveZero,
+            track_offset,
         }
     }
     fn create_filter(n_fast: usize, filter_option: ClutterFilterOption) -> Box<dyn ClutterFilter> {

@@ -43,17 +43,18 @@ class SonarApp {
     this.cellUnitRvCouplingLabel = document.getElementById(
       "cell-unit-rv-coupling-label",
     );
+    this.offsetCheckbox = document.getElementById("offset-checkbox");
 
     this.rangedopplerdisplay = new RangeDopplerDisplay(this.rangeDopplerCanvas);
 
     this.fcRange.onchange = () => this.updateParams();
     this.bandwidthRange.onchange = () => this.updateParams();
+    this.offsetCheckbox.onchange = () => this.updateParams();
     const radios = document.querySelectorAll(".clutter-filter-settings input");
     for (const radio of radios) {
       radio.onchange = () => this.updateParams();
     }
     this.updateParams();
-    console.log(this.sonarParameters);
 
     // let showClutter = false;
     // let clutterPlot = undefined;
@@ -89,6 +90,8 @@ class SonarApp {
     const fc = Number(this.fcRange.value);
 
     const clutterFilterOption = this.settingsForm.clutterfilter.value;
+
+    const track_offset = this.offsetCheckbox.checked;
 
     const decimation = Math.floor(fs / (bandwidth * 1.3));
     const impulseLength = 512;
@@ -157,7 +160,9 @@ class SonarApp {
       decimation,
       n_slow,
       clutterFilterOption,
+      track_offset,
     };
+    console.log(this.sonarParameters);
     if (this.audio_graph && this.audio_graph.audioContext) {
       this.audio_graph.audioContext.close();
     }

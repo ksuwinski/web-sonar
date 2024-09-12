@@ -32,6 +32,7 @@ class SonarProcessor extends AudioWorkletProcessor {
           ev.data.n_slow,
           ev.data.clutter_alpha,
           parseFilterOption(ev.data.clutterFilterOption),
+          ev.data.track_offset,
         );
         console.log("initialized");
         this.wasm_ready = true;

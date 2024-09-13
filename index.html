@@ -20,12 +20,13 @@
             display: grid;
             grid-template-columns: 20px 40px auto;
             grid-template-rows: auto 20px;
+            margin-bottom: 10px;
+            margin-right: 60px;
         }
         .settings-and-info {
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
-            margin-top: 10px;
         }
         fieldset {
             width: fit-content;
@@ -92,6 +93,9 @@
             width: fit-content;
             text-align: center;
         }
+        .description, .settings-and-info {
+            margin: 0 60px;
+        }
         </style>
     </head>
     </div>
@@ -135,15 +139,7 @@
                         <span class="setting-value" id="bandwidth-range-label"></span>
                         Hz
                     </label>
-                    <input id="bandwidth-range" type="range" min="0" max="5" step="1" list="markers" value="2">
-                    <datalist id="markers">
-                        <option value="0"></option>
-                        <option value="1"></option>
-                        <option value="2"></option>
-                        <option value="3"></option>
-                        <option value="4"></option>
-                        <option value="5"></option>
-                    </datalist>
+                    <input id="bandwidth-range" type="range" min="-8" max="8" step="1" value="0">
                 </div>
 
                 <div class="range-setting">
@@ -152,7 +148,12 @@
                 </div>
 
                 <div class="range-setting">
-                    <label for="chirp-length-range">chirp length: <span class="setting-value" id="chirp-length-range-label"></span></label>
+                    <label for="chirp-length-range">
+                        chirp length:
+                        <span class="setting-value" id="chirp-length-range-label"></span>
+                        samples
+                        (<span class="setting-value" id="chirp-duration-range-label"></span> ms)
+                    </label>
                     <input id="chirp-length-range" type="range" min="1" max="8192" step="1" value="512">
                 </div>
             </div>
@@ -160,7 +161,7 @@
                 <fieldset class="clutter-filter-settings">
                   <legend
                       class="hoverable"
-                      title="Clutter filter removes stationary echoes from walls and from the direct path between speaker and microphone.">
+                      title="Clutter filter removes stationary echoes from walls and, more importantly, the direct-path signal between the speaker and the microphone.">
                       Clutter filtering
                   </legend>
 
@@ -232,6 +233,11 @@
                         <span class="info-value" id="wavelength-label"></span>
                         cm
                     </div>
+                    <div class="info-item">
+                        sampling rate:
+                        <span class="info-value" id="sample-rate-label"></span>
+                        Hz
+                    </div>
                 </div>
                 <div class="info-section">
                     <h1>Advanced info</h1>
@@ -274,9 +280,9 @@
                 </div>
             <!-- </div> -->
         </div>
-        <article>
+        <article class="description">
             <h1>What is this?</h1>
-            An online demonstration of pulse-doppler radar, using sound instead of radio waves.
+            An online demonstration of <a href="https://en.wikipedia.org/wiki/Pulse-Doppler_signal_processing">pulse-doppler radar</a>, using sound instead of radio waves.
             <h1>How to use it?</h1>
             <p>
                 Press the start button, and make sure that sound output is enabled on your computer. Don't use headphones.
@@ -290,25 +296,32 @@
                 Bistatic velocity is the rate of change of bistatic range.
             </p>
             <p>
-                The range-doppler plot shows the intensity of echos received for each combination of bistatic range and velocity.
+                The range-doppler plot shows the intensity of echo received for each combination of bistatic range and velocity.
             </p>
 
             <h1>Cool things to try</h1>
             <ul>
                 <li>Move your hand around (not too fast) and see its echo appear.</li>
+                <li>Compare the sonar's performance for constant-velocity targets and <b>accelerating</b> targets (spoiler: it doesn't work well for accelerating ones)</li>
                 <li>Stand far away from the computer and move a flat object back and forth, facing the sonar.</li>
+                <li>See what happens when a target moves so fast that it crosses the top or bottom edge of the range-doppler map.</li>
                 <li>Move one hand forward towards the microphone, and the other hand backward, and see if you can detect two echos at the same range but different velocities.</li>
                 <li>If you're using a laptop, try connecting it to an <b>external speaker</b>. This way you should have more control over the direction of the transmitter beam. First experiment with the speaker and microphone pointing in the same direction.</li>
+                <li>Move away far enough that your echo will loop back to zero range on the range-doppler map.</li>
                 <li>Point the speaker at the ceiling or a wall and try to detect an indirect echo (one that bounces off the ceiling and then off a moving object).</li>
                 <li>Try using different objects as reflectors. Try to make a <a href="https://en.wikipedia.org/wiki/Corner_reflector">corner reflector</a>.</li>
                 <li>Experiment with <b>bandwidth</b>: more bandwidth gives better range resolution.</li>
-                <li>Use the sonar in a big room or an <b>open space</b>. You should see much fewer indirect echos.</li>
-                <li>Disable clutter filtering and audio delay compensation, connect headphones to your computer, and observe the direct-path signal between the headphones and the microphone.</li>
+                <li>Use the sonar in a big room or an <b>open space</b>. Compare with a small room. You should see fewer indirect echos in big rooms.</li>
+                <li>Disable clutter filtering and audio delay compensation, connect a small speaker (or headphones) to the computer, and observe the direct-path signal between the speaker and the microphone while moving the speaker around.</li>
+                <li>Set 'pulses per CPI' to 1 to effectively disable Doppler processing. The sonar now works in <a href="https://en.wikipedia.org/wiki/Moving_target_indication">Moving Target Indication (MTI)</a> mode. Use the two-pulse canceller for best results.</li>
+                <li>Try to find the best possible parameters for the sonar. In general, you won't be able to find a set of settings that is satisfactory in all aspects. It's always a matter of compromise between range ambiguity, velocity ambiguity, and length of the coherent processing interval.
+                </li>
+                <li>Make your own sonar!</li>
             </ul>
 
             <h1>How does it work?</h1>
             Soon there will be a blog post discussing this sonar in greater detail.
-            You can also read about pulse-doppler radar in books like as <cite>M. Richards, Fundamentals of Radar Signal Processing</cite>, or the classic <cite>M. Skolnik, Radar Handbook</cite> (and also <cite>Introduction to Radar Systems</cite>).
+            You can also read about pulse-doppler radar in books like as <cite>M. Richards, Fundamentals of Radar Signal Processing</cite>, or the classic <cite>M. Skolnik, Radar Handbook</cite> (and also <cite>Introduction to Radar Systems</cite> by the same author).
             <figure>
                 <img src="sonar.svg"></object>
                 <figcaption>Block diagram of the sonar</figcaption>

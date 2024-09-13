@@ -17,6 +17,11 @@ class SonarApp {
     this.bandwidthRange = document.getElementById("bandwidth-range");
     this.nSlowLabel = document.getElementById("n-slow-range-label");
     this.nSlowRange = document.getElementById("n-slow-range");
+    this.chirpLengthLabel = document.getElementById("chirp-length-range-label");
+    this.chirpDurationLabel = document.getElementById(
+      "chirp-duration-range-label",
+    );
+    this.chirpLengthRange = document.getElementById("chirp-length-range");
     this.decimationLabel = document.getElementById("decimation-label");
     this.rangeResolutionLabel = document.getElementById(
       "range-resolution-label",
@@ -48,6 +53,8 @@ class SonarApp {
     this.integrationGainLabel = document.getElementById(
       "integration-gain-label",
     );
+    this.sampleRateLabel = document.getElementById("sample-rate-label");
+
     this.offsetCheckbox = document.getElementById("offset-checkbox");
 
     this.rangedopplerdisplay = new RangeDopplerDisplay(this.rangeDopplerCanvas);
@@ -56,6 +63,7 @@ class SonarApp {
     this.bandwidthRange.onchange = () => this.updateParams();
     this.offsetCheckbox.onchange = () => this.updateParams();
     this.nSlowRange.onchange = () => this.updateParams();
+    this.chirpLengthRange.onchange = () => this.updateParams();
     const radios = document.querySelectorAll(".clutter-filter-settings input");
     for (const radio of radios) {
       radio.onchange = () => this.updateParams();
@@ -85,9 +93,12 @@ class SonarApp {
 
   updateParams() {
     this.ignoreMessages = true;
-    const bandwidthList = [1000, 2000, 4000, 8000, 12000, 16000];
-    const bandwidth = bandwidthList[this.bandwidthRange.value];
     const fs = 44100;
+
+    //const bandwidthList = [1000, 2000, 4000, 8000, 12000, 16000];
+    //const bandwidth = bandwidthList[this.bandwidthRange.value];
+    const bandwidth =
+      Math.round(40 * Math.pow(2, this.bandwidthRange.value / 4)) * 100;
 
     const fc_step = 500;
     this.fcRange.min = Math.ceil((bandwidth * 1.3) / 2 / fc_step) * fc_step;
@@ -95,9 +106,9 @@ class SonarApp {
       Math.floor((fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
     const fc = Number(this.fcRange.value);
 
-    const impulseLength = 512;
+    const impulseLength = Number(this.chirpLengthRange.value);
 
-    const max_CPI = 1;
+    const max_CPI = 0.4;
     const max_n_slow = (max_CPI * fs) / impulseLength;
     this.nSlowRange.max = max_n_slow;
     const n_slow = Number(this.nSlowRange.value);
@@ -139,6 +150,11 @@ class SonarApp {
     this.prfLabel.innerHTML = PRF.toFixed(0);
     this.rangeAmbiguityLabel.textContent = rangeAmbiguity.toFixed(2);
     this.velocityAmbiguityLabel.textContent = velocityAmbiguity.toFixed(2);
+    this.chirpLengthLabel.textContent = impulseLength;
+    this.chirpDurationLabel.textContent = ((impulseLength / fs) * 1000).toFixed(
+      2,
+    );
+
     this.integrationGainLabel.textContent = integrationGain.toFixed(2);
     this.maxMigrationlessVelocityLabel.textContent = (
       (this.rangeResolution / CPI) *
@@ -149,6 +165,7 @@ class SonarApp {
       CPI /
       this.velocityResolution
     ).toFixed(1);
+    this.sampleRateLabel.textContent = fs;
     // this.rangeVelocityCouplingLabel.textContent = ();
 
     // chirpRate*delta_t = delta_f
@@ -185,6 +202,7 @@ class SonarApp {
     if (this.started) {
       this.audio_graph.start();
     }
+    this.onScreenResize();
     this.ignoreMessages = false;
   }
 
@@ -193,14 +211,17 @@ class SonarApp {
     this.rangeAxisTicks.textContent = "";
     const cellWidthPx =
       this.rangeDopplerCanvas.clientWidth / this.rangeDopplerCanvas.width;
-    const rangeTickSpacing = cellWidthPx / this.rangeResolution;
+    // const rangeTickSpacing = cellWidthPx / this.rangeResolution;
+    const rangeTickSpacing = 100; //px
+    const rangeTickStep =
+      (rangeTickSpacing / cellWidthPx) * this.rangeResolution;
     const n_ticks_range = Math.ceil(
-      (2 * this.rangeDopplerCanvas.clientWidth) / rangeTickSpacing,
+      this.rangeDopplerCanvas.clientWidth / rangeTickSpacing,
     );
     for (let i = 0; i < n_ticks_range; i += 1) {
       const tick = document.createElement("div");
-      tick.style.left = `${(i * rangeTickSpacing) / 2}px`;
-      tick.textContent = i / 2 + " m";
+      tick.style.left = `${i * rangeTickSpacing}px`;
+      tick.textContent = (i * rangeTickStep).toFixed(2) + " m";
       this.rangeAxisTicks.appendChild(tick);
     }
 

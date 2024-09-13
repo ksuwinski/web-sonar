@@ -57,10 +57,10 @@ impl InputBuffer {
 }
 
 /*
-    input ----> matched_filter -----+----> clutter_filter ----> range_doppler ----> output
-                                    |                              ^
-                                    |                              | (argmax)
-                                    +-------> clutter_map ---------+
+    input_buffer ----> matched_filter -----+----> clutter_filter ----> range_doppler ----> output
+                                           |                              ^
+                                           |                              | (argmax)
+                                           +-------> clutter_map ---------+
 */
 #[wasm_bindgen]
 pub struct Sonar {
@@ -105,18 +105,18 @@ impl Sonar {
                 &mut complex_planner,
                 &mut real_planner,
             ),
-            clutter_filter: Self::create_filter(n_fast, filter_option),
+            clutter_filter: Self::create_filter(n_fast, filter_option, clutter_alpha),
             clutter_map: ClutterMap::new(n_fast, clutter_alpha),
             remove_zero: filter_option == ClutterFilterOption::RemoveZero,
             track_offset,
         }
     }
-    fn create_filter(n_fast: usize, filter_option: ClutterFilterOption) -> Box<dyn ClutterFilter> {
+    fn create_filter(n_fast: usize, filter_option: ClutterFilterOption, alpha: f32) -> Box<dyn ClutterFilter> {
         match filter_option {
             ClutterFilterOption::None => Box::new(DUMMY_FILTER),
             ClutterFilterOption::RemoveZero => Box::new(DUMMY_FILTER),
             ClutterFilterOption::TwoPulse => Box::new(TwoPulseCanceller::new(n_fast)),
-            ClutterFilterOption::Slow => Box::new(LeakyIntegratorFilter::new(n_fast, 0.05)),
+            ClutterFilterOption::Slow => Box::new(LeakyIntegratorFilter::new(n_fast, alpha)),
         }
     }
     pub fn handle_input(&mut self, samples: &[f32]) -> bool {
@@ -173,7 +173,7 @@ mod tests {
         let chunk2: Vec<f32> = (0..128).map(|x| (x * 10 + 2) as f32).collect();
         let chunk3: Vec<f32> = (0..(256 + 10)).map(|x| (x * 10 + 3) as f32).collect();
         let chunk4: Vec<f32> = (0..128).map(|x| (x * 10 + 4) as f32).collect();
-        let chunk5: Vec<f32> = (0..128 * 3).map(|x| (x * 10 + 5) as f32).collect();
+        let chunk5: Vec<f32> = (0..128*3).map(|x| (x * 10 + 5) as f32).collect();
 
         let r1 = buffer.handle_input(&chunk1);
         assert_eq!(r1, None);
@@ -193,8 +193,8 @@ mod tests {
         let r5 = buffer.handle_input(&chunk5);
         let full_buffer = r5.unwrap();
         assert_eq!(full_buffer.len(), 512);
-        assert_eq!(full_buffer[0..10], chunk3[256..256 + 10]);
-        assert_eq!(full_buffer[10..128 + 10], chunk4);
-        assert_eq!(full_buffer[128 + 10..512], chunk5[0..128 * 3 - 10]);
+        assert_eq!(full_buffer[0..10], chunk3[256..256+10]);
+        assert_eq!(full_buffer[10..128+10], chunk4);
+        assert_eq!(full_buffer[128+10..512], chunk5[0..128*3-10]);
     }
 }

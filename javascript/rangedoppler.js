@@ -49,5 +49,6 @@ export class RangeDopplerDisplay {
       }
     }
     this.ctx.putImageData(this.imagedata, 0, 0);
+    return max;
   }
 }

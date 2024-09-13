@@ -29,7 +29,7 @@ class SonarProcessor extends AudioWorkletProcessor {
           ev.data.chirp,
           ev.data.normalizedCarrier,
           ev.data.decimation,
-          ev.data.n_slow,
+          ev.data.slow_time_window,
           ev.data.clutter_alpha,
           parseFilterOption(ev.data.clutterFilterOption),
           ev.data.track_offset,

@@ -81,7 +81,7 @@ impl Sonar {
         impulse: &[f32],
         normalized_f_carrier: f32,
         decimation: usize,
-        n_slow: usize,
+        slow_time_window: &[f32],
         clutter_alpha: f32,
         filter_option: ClutterFilterOption,
         track_offset: bool,
@@ -92,12 +92,17 @@ impl Sonar {
         let mut real_planner = RealFftPlanner::new();
         let mut complex_planner = FftPlanner::new();
 
+        let n_slow = slow_time_window.len();
         let n_fast = impulse.len().div_ceil(decimation);
 
         Sonar {
             input_buffer: InputBuffer::new(impulse.len()),
             range_doppler_output: Array2::zeros((n_slow, n_fast)),
-            range_doppler: RangeDopplerProcessor::new(n_slow, n_fast, &mut complex_planner),
+            range_doppler: RangeDopplerProcessor::new(
+                slow_time_window,
+                n_fast,
+                &mut complex_planner,
+            ),
             matched_filter: MatchedFilter::new(
                 impulse,
                 normalized_f_carrier,
@@ -111,7 +116,11 @@ impl Sonar {
             track_offset,
         }
     }
-    fn create_filter(n_fast: usize, filter_option: ClutterFilterOption, alpha: f32) -> Box<dyn ClutterFilter> {
+    fn create_filter(
+        n_fast: usize,
+        filter_option: ClutterFilterOption,
+        alpha: f32,
+    ) -> Box<dyn ClutterFilter> {
         match filter_option {
             ClutterFilterOption::None => Box::new(DUMMY_FILTER),
             ClutterFilterOption::RemoveZero => Box::new(DUMMY_FILTER),
@@ -173,7 +182,7 @@ mod tests {
         let chunk2: Vec<f32> = (0..128).map(|x| (x * 10 + 2) as f32).collect();
         let chunk3: Vec<f32> = (0..(256 + 10)).map(|x| (x * 10 + 3) as f32).collect();
         let chunk4: Vec<f32> = (0..128).map(|x| (x * 10 + 4) as f32).collect();
-        let chunk5: Vec<f32> = (0..128*3).map(|x| (x * 10 + 5) as f32).collect();
+        let chunk5: Vec<f32> = (0..128 * 3).map(|x| (x * 10 + 5) as f32).collect();
 
         let r1 = buffer.handle_input(&chunk1);
         assert_eq!(r1, None);
@@ -193,8 +202,8 @@ mod tests {
         let r5 = buffer.handle_input(&chunk5);
         let full_buffer = r5.unwrap();
         assert_eq!(full_buffer.len(), 512);
-        assert_eq!(full_buffer[0..10], chunk3[256..256+10]);
-        assert_eq!(full_buffer[10..128+10], chunk4);
-        assert_eq!(full_buffer[128+10..512], chunk5[0..128*3-10]);
+        assert_eq!(full_buffer[0..10], chunk3[256..256 + 10]);
+        assert_eq!(full_buffer[10..128 + 10], chunk4);
+        assert_eq!(full_buffer[128 + 10..512], chunk5[0..128 * 3 - 10]);
     }
 }

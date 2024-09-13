@@ -1,4 +1,4 @@
-import { generateChirp } from "./chirp.js";
+import { generateChirp, hannWindow, rectWindow } from "./chirp.js";
 
 export class SonarAudioGraph {
   initialized;
@@ -34,12 +34,23 @@ export class SonarAudioGraph {
     const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
     this.chirpSource = initAudioOutput(this.audioContext, chirp);
 
+    const n_slow = this.sonarParameters.n_slow;
+
+    let slow_time_window = undefined;
+    if (this.sonarParameters.apply_window) {
+      slow_time_window = hannWindow(n_slow);
+      console.log("hann", slow_time_window);
+    } else {
+      slow_time_window = rectWindow(n_slow);
+      console.log("rect", slow_time_window);
+    }
+
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
       normalizedCarrier,
       clutter_alpha: 0.1,
       decimation: this.sonarParameters.decimation,
-      n_slow: this.sonarParameters.n_slow,
+      slow_time_window,
       clutterFilterOption: this.sonarParameters.clutterFilterOption,
       track_offset: this.sonarParameters.track_offset,
     });

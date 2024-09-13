@@ -65,9 +65,11 @@ pub struct RangeDopplerProcessor {
     fft_buffer: Vec<Complex32>,
     fft_scratch: Vec<Complex32>,
     slow_time_fft_plan: Arc<dyn Fft<f32>>,
+    window: Vec<f32>,
 }
 impl RangeDopplerProcessor {
-    pub fn new(n_slow: usize, n_fast: usize, fft_planner: &mut FftPlanner<f32>) -> Self {
+    pub fn new(slow_time_window: &[f32], n_fast: usize, fft_planner: &mut FftPlanner<f32>) -> Self {
+        let n_slow = slow_time_window.len();
         let slow_time_fft_plan = fft_planner.plan_fft_forward(n_slow);
         Self {
             impulse_counter: 0,
@@ -76,6 +78,7 @@ impl RangeDopplerProcessor {
             fft_buffer: vec![Complex32::ZERO; n_slow],
             fft_scratch: vec![Complex32::ZERO; slow_time_fft_plan.get_inplace_scratch_len()],
             slow_time_fft_plan,
+            window: slow_time_window.to_vec(),
         }
     }
 
@@ -114,6 +117,9 @@ impl RangeDopplerProcessor {
             slow_time_slice
                 .slice(s![..self.impulse_counter])
                 .copy_into(&mut self.fft_buffer[n_slow - self.impulse_counter..]);
+            for (x_slow_t, x_window) in zip_eq(&mut self.fft_buffer, &self.window) {
+                *x_slow_t *= x_window;
+            }
             self.slow_time_fft_plan
                 .process_with_scratch(&mut self.fft_buffer, &mut self.fft_scratch);
             fftshift_into(&self.fft_buffer, output_slice.iter_mut());

@@ -56,12 +56,14 @@ class SonarApp {
     this.sampleRateLabel = document.getElementById("sample-rate-label");
 
     this.offsetCheckbox = document.getElementById("offset-checkbox");
+    this.windowCheckbox = document.getElementById("window-checkbox");
 
     this.rangedopplerdisplay = new RangeDopplerDisplay(this.rangeDopplerCanvas);
 
     this.fcRange.onchange = () => this.updateParams();
     this.bandwidthRange.onchange = () => this.updateParams();
     this.offsetCheckbox.onchange = () => this.updateParams();
+    this.windowCheckbox.onchange = () => this.updateParams();
     this.nSlowRange.onchange = () => this.updateParams();
     this.chirpLengthRange.onchange = () => this.updateParams();
     const radios = document.querySelectorAll(".clutter-filter-settings input");
@@ -106,16 +108,22 @@ class SonarApp {
       Math.floor((fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
     const fc = Number(this.fcRange.value);
 
-    const impulseLength = Number(this.chirpLengthRange.value);
+    const impulseLength = Math.round(
+      512 * Math.pow(2, this.chirpLengthRange.value / 4),
+    );
 
     const max_CPI = 0.4;
-    const max_n_slow = (max_CPI * fs) / impulseLength;
+    let max_n_slow = Math.round((max_CPI * fs) / impulseLength);
+    if (max_n_slow % 2 == 0) {
+      max_n_slow -= 1;
+    }
     this.nSlowRange.max = max_n_slow;
     const n_slow = Number(this.nSlowRange.value);
     this.nSlowLabel.textContent = n_slow;
 
     const clutterFilterOption = this.settingsForm.clutterfilter.value;
     const track_offset = this.offsetCheckbox.checked;
+    const apply_window = this.windowCheckbox.checked && n_slow != 1;
 
     const decimation = Math.floor(fs / (bandwidth * 1.3));
     const n_fast = Math.ceil(impulseLength / decimation);
@@ -192,6 +200,7 @@ class SonarApp {
       n_slow,
       clutterFilterOption,
       track_offset,
+      apply_window,
     };
     console.log(this.sonarParameters);
     if (this.audio_graph && this.audio_graph.audioContext) {

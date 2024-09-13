@@ -1,3 +1,4 @@
+<!doctype html>
 <html>
     <head>
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
@@ -96,6 +97,12 @@
         .description, .settings-and-info {
             margin: 0 60px;
         }
+        .formula {text-align: center;}
+        .input-level-percentage-container {
+            width: 3em;
+            display: inline-block;
+            text-align: left;
+        }
         </style>
     </head>
     </div>
@@ -125,7 +132,13 @@
             <div class="settings">
                 <div class="controls">
                     <button id="button-start">start</button>
-                    <div>peak input level: <meter id="input-level-meter" min="0" max="100" low="40" high="90"></meter> <span id="input-level-label">0</span>%</div>
+                    <div>peak input level:
+                        <meter id="input-level-meter" min="0" max="100" low="40" high="90"></meter>
+                        <span class="input-level-percentage-container">
+                            <span id="input-level-label">0</span>
+                            %
+                        </span>
+                    </div>
                 </div>
 
                 <div class="range-setting">
@@ -143,18 +156,18 @@
                 </div>
 
                 <div class="range-setting">
-                    <label for="n-slow-range">pulses per CPI: <span class="setting-value" id="n-slow-range-label"></span></label>
-                    <input id="n-slow-range" type="range" min="1" max="200" step="1" value="20">
-                </div>
-
-                <div class="range-setting">
                     <label for="chirp-length-range">
                         chirp length:
                         <span class="setting-value" id="chirp-length-range-label"></span>
                         samples
                         (<span class="setting-value" id="chirp-duration-range-label"></span> ms)
                     </label>
-                    <input id="chirp-length-range" type="range" min="1" max="8192" step="1" value="512">
+                    <input id="chirp-length-range" type="range" min="-8" max="10" step="1" value="0">
+                </div>
+
+                <div class="range-setting">
+                    <label for="n-slow-range">chirps per <span class="hoverable" title="coherent processing interval">CPI</span>: <span class="setting-value" id="n-slow-range-label"></span></label>
+                    <input id="n-slow-range" type="range" min="1" max="201" step="2" value="20">
                 </div>
             </div>
             <form class="settings" id="settings-form">
@@ -191,6 +204,15 @@
                     </label>
                     <input id="offset-checkbox" type="checkbox" checked>
                 </div>
+                <div class="checkbox-setting">
+                    <label
+                        for="window-checkbox"
+                        class="hoverable"
+                        title="Applies Hann window before taking the slow-time FFT. (fast-time data is always windowed)">
+                            apply window before FFT:
+                    </label>
+                    <input id="window-checkbox" type="checkbox" checked>
+                </div>
             </form>
             <!-- <div class="info-container"> -->
                 <div class="info-section">
@@ -219,7 +241,8 @@
                         m/s
                     </div>
                     <div class="info-item">
-                        <span class="hoverable" title="the frequency at which consecutive chirps are played">pulse repetition frequency</span>:
+                        <!-- <span class="hoverable" title="the frequency at which consecutive chirps are played">pulse repetition frequency</span>: -->
+                        pulse repetition frequency
                         <span class="info-value" id="prf-label"></span>
                         Hz
                     </div>
@@ -290,9 +313,9 @@
                 You may have to adjust volume and microphone sensitivity to get good results.
             </p>
             <p>
-                The range-doppler plot has two axes: bistatic range and bistatic velocity.
-                Bistatic range of an object is the sum of distances from the speaker to the object, and from the object to the microphone.
-                In other words, it is the total distance travelled by an echo that bounced off the object.
+                The range-doppler plot has two axes: <a href="https://en.wikipedia.org/wiki/Bistatic_radar#Range">bistatic range</a> and bistatic velocity.
+                Bistatic range of a target is:
+            <p class="formula">(distance from the speaker to the target) + (distance from the target to the microphone) - (distance from the speaker to the microphone)</p>
                 Bistatic velocity is the rate of change of bistatic range.
             </p>
             <p>
@@ -310,10 +333,10 @@
                 <li>Move away far enough that your echo will loop back to zero range on the range-doppler map.</li>
                 <li>Point the speaker at the ceiling or a wall and try to detect an indirect echo (one that bounces off the ceiling and then off a moving object).</li>
                 <li>Try using different objects as reflectors. Try to make a <a href="https://en.wikipedia.org/wiki/Corner_reflector">corner reflector</a>.</li>
-                <li>Experiment with <b>bandwidth</b>: more bandwidth gives better range resolution.</li>
+                <li>Experiment with <b>bandwidth</b>. More bandwidth gives better range resolution.</li>
                 <li>Use the sonar in a big room or an <b>open space</b>. Compare with a small room. You should see fewer indirect echos in big rooms.</li>
                 <li>Disable clutter filtering and audio delay compensation, connect a small speaker (or headphones) to the computer, and observe the direct-path signal between the speaker and the microphone while moving the speaker around.</li>
-                <li>Set 'pulses per CPI' to 1 to effectively disable Doppler processing. The sonar now works in <a href="https://en.wikipedia.org/wiki/Moving_target_indication">Moving Target Indication (MTI)</a> mode. Use the two-pulse canceller for best results.</li>
+                <li>Set 'chirps per CPI' to 1 to effectively disable Doppler processing. The sonar now works in <a href="https://en.wikipedia.org/wiki/Moving_target_indication">Moving Target Indication (MTI)</a> mode. Use the two-pulse canceller for best results.</li>
                 <li>Try to find the best possible parameters for the sonar. In general, you won't be able to find a set of settings that is satisfactory in all aspects. It's always a matter of compromise between range ambiguity, velocity ambiguity, and length of the coherent processing interval.
                 </li>
                 <li>Make your own sonar!</li>

@@ -1,4 +1,5 @@
 # Online pulse-doppler sonar demonstrator
+[Try it online](https://ksuwinski.github.io/sonar/)
 
 # Development
 

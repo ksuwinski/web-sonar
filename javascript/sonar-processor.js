@@ -1,5 +1,5 @@
 import "./polyfill.js";
-import init, { ClutterFilterOption, Sonar } from "./pkg/sonar.js";
+import init, { ClutterFilterOption, Sonar } from "../pkg/sonar.js";
 
 function parseFilterOption(option) {
   switch (option) {

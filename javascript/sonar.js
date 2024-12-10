@@ -251,9 +251,9 @@ class SonarApp {
 
   async toggleState() {
     if (this.started) {
-      this.stop();
+      await this.stop();
     } else {
-      this.start();
+      await this.start();
     }
   }
   async start() {

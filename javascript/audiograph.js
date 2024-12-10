@@ -7,6 +7,7 @@ export class SonarAudioGraph {
   micSource;
   onWorkletMessage;
   sonarParameters;
+  sampleRate;
 
   constructor(sonarParameters) {
     this.initialized = false;
@@ -26,6 +27,7 @@ export class SonarAudioGraph {
     });
 
     const fs = this.audioContext.sampleRate;
+    console.log("audiocontext fs", fs);
     if (fs != 44100) {
       console.error("wrong sample rate");
     }
@@ -39,18 +41,20 @@ export class SonarAudioGraph {
     let slow_time_window = undefined;
     if (this.sonarParameters.apply_window) {
       slow_time_window = hannWindow(n_slow);
-      console.log("hann", slow_time_window);
     } else {
       slow_time_window = rectWindow(n_slow);
-      console.log("rect", slow_time_window);
     }
+
+    const tau = 0.1; //idk this is probably stupid
+    const clutter_alpha = impulseLength / (fs * tau);
+    console.log(clutter_alpha);
 
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
       normalizedCarrier,
-      clutter_alpha: 0.1,
-      decimation: this.sonarParameters.decimation,
+      clutter_alpha,
       slow_time_window,
+      decimation: this.sonarParameters.decimation,
       clutterFilterOption: this.sonarParameters.clutterFilterOption,
       track_offset: this.sonarParameters.track_offset,
     });
@@ -64,7 +68,7 @@ export class SonarAudioGraph {
     if (this.initialized) {
       await this.audioContext.resume();
     } else {
-      this.#initialize();
+      await this.#initialize();
     }
   }
   async stop() {
@@ -90,6 +94,8 @@ async function initAudioInput(audioContext) {
   const audioTrack = stream.getAudioTracks()[0];
   console.log("audio input settings:", audioTrack.getSettings());
 
+  console.log("audio track constraints", audioTrack.getConstraints());
+  console.log("audio track capabilities", audioTrack.getCapabilities());
   const micSource = audioContext.createMediaStreamSource(stream);
   return micSource;
 }
@@ -111,11 +117,13 @@ function initAudioOutput(audioContext, chirp) {
 
 async function initSonarWorklet(audioContext, params) {
   const response = await fetch(
-    "/pkg/sonar_bg.wasm?idk=" + Math.round(Math.random() * 1000000),
+    "pkg/sonar_bg.wasm"
+    // "/pkg/sonar_bg.wasm?dontcache=" + Math.round(Math.random() * 1000000),
   );
+  console.log(response);
   const wasm_blob = await response.arrayBuffer();
 
-  await audioContext.audioWorklet.addModule("sonar-processor.js");
+  await audioContext.audioWorklet.addModule("javascript/sonar-processor.js");
   const sonarProcessor = new AudioWorkletNode(audioContext, "sonar-processor", {
     numberOfInputs: 1,
     numberOfOutputs: 0,

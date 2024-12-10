@@ -313,6 +313,9 @@
                 You may have to adjust volume and microphone sensitivity to get good results.
             </p>
             <p>
+                Warning: there seems to be a problem with some browsers (confirmed on Firefox for Android). Try using a different browser if the canvas stays blank after pressing the start button.
+            </p>
+            <p>
                 The range-doppler plot has two axes: <a href="https://en.wikipedia.org/wiki/Bistatic_radar#Range">bistatic range</a> and bistatic velocity.
                 Bistatic range of a target is:
             <p class="formula">(distance from the speaker to the target) + (distance from the target to the microphone) - (distance from the speaker to the microphone)</p>
@@ -328,29 +331,29 @@
                 <li>Compare the sonar's performance for constant-velocity targets and <b>accelerating</b> targets (spoiler: it doesn't work well for accelerating ones)</li>
                 <li>Stand far away from the computer and move a flat object back and forth, facing the sonar.</li>
                 <li>See what happens when a target moves so fast that it crosses the top or bottom edge of the range-doppler map.</li>
-                <li>Move one hand forward towards the microphone, and the other hand backward, and see if you can detect two echos at the same range but different velocities.</li>
+                <li>Move one hand forward towards the microphone, and the other hand backwards, and see if you can detect two echos at the same range, with different velocities.</li>
                 <li>If you're using a laptop, try connecting it to an <b>external speaker</b>. This way you should have more control over the direction of the transmitter beam. First experiment with the speaker and microphone pointing in the same direction.</li>
                 <li>Move away far enough that your echo will loop back to zero range on the range-doppler map.</li>
                 <li>Point the speaker at the ceiling or a wall and try to detect an indirect echo (one that bounces off the ceiling and then off a moving object).</li>
                 <li>Try using different objects as reflectors. Try to make a <a href="https://en.wikipedia.org/wiki/Corner_reflector">corner reflector</a>.</li>
+                <li>Make a small pendulum and see the echo that it generates when oscillating</li>
                 <li>Experiment with <b>bandwidth</b>. More bandwidth gives better range resolution.</li>
                 <li>Use the sonar in a big room or an <b>open space</b>. Compare with a small room. You should see fewer indirect echos in big rooms.</li>
                 <li>Disable clutter filtering and audio delay compensation, connect a small speaker (or headphones) to the computer, and observe the direct-path signal between the speaker and the microphone while moving the speaker around.</li>
                 <li>Set 'chirps per CPI' to 1 to effectively disable Doppler processing. The sonar now works in <a href="https://en.wikipedia.org/wiki/Moving_target_indication">Moving Target Indication (MTI)</a> mode. Use the two-pulse canceller for best results.</li>
                 <li>Try to find the best possible parameters for the sonar. In general, you won't be able to find a set of settings that is satisfactory in all aspects. It's always a matter of compromise between range ambiguity, velocity ambiguity, and length of the coherent processing interval.
                 </li>
-                <li>Make your own sonar!</li>
             </ul>
 
             <h1>How does it work?</h1>
             Soon there will be a blog post discussing this sonar in greater detail.
             You can also read about pulse-doppler radar in books like as <cite>M. Richards, Fundamentals of Radar Signal Processing</cite>, or the classic <cite>M. Skolnik, Radar Handbook</cite> (and also <cite>Introduction to Radar Systems</cite> by the same author).
             <figure>
-                <img src="sonar.svg"></object>
+                <img src="./sonar.svg"></object>
                 <figcaption>Block diagram of the sonar</figcaption>
             </figure>
         </article>
-        <script src="chart.js"></script>
+        <!-- <script src="chart.js"></script> -->
         <script src="javascript/sonar.js" type="module"></script>
     </body>
 </html>

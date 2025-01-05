@@ -23,17 +23,15 @@ export class SonarAudioGraph {
 
     this.audioContext = new AudioContext({
       latencyHint: "playback",
-      sampleRate: 44100,
+      // sampleRate: 44100,
     });
 
-    const fs = this.audioContext.sampleRate;
-    console.log("audiocontext fs", fs);
-    if (fs != 44100) {
-      console.error("wrong sample rate");
-    }
-    const normalizedCarrier = fc / fs;
+    this.sampleRate = this.audioContext.sampleRate;
 
-    const chirp = generateChirp(fs, impulseLength, fc, bandwidth);
+    console.log("audiocontext fs", this.sampleRate);
+    const normalizedCarrier = fc / this.sampleRate;
+
+    const chirp = generateChirp(this.sampleRate, impulseLength, fc, bandwidth);
     this.chirpSource = initAudioOutput(this.audioContext, chirp);
 
     const n_slow = this.sonarParameters.n_slow;
@@ -46,8 +44,7 @@ export class SonarAudioGraph {
     }
 
     const tau = 0.1; //idk this is probably stupid
-    const clutter_alpha = impulseLength / (fs * tau);
-    console.log(clutter_alpha);
+    const clutter_alpha = impulseLength / (this.sampleRate * tau);
 
     this.sonarProcessor = await initSonarWorklet(this.audioContext, {
       chirp,
@@ -88,12 +85,11 @@ async function initAudioInput(audioContext) {
       noiseSuppression: false,
       voiceIsolation: false,
       channelCount: 2,
-      sampleRate: 44100,
+      // sampleRate: 44100,
     },
   });
   const audioTrack = stream.getAudioTracks()[0];
   console.log("audio input settings:", audioTrack.getSettings());
-
   console.log("audio track constraints", audioTrack.getConstraints());
   console.log("audio track capabilities", audioTrack.getCapabilities());
   const micSource = audioContext.createMediaStreamSource(stream);
@@ -120,7 +116,6 @@ async function initSonarWorklet(audioContext, params) {
     "pkg/sonar_bg.wasm"
     // "/pkg/sonar_bg.wasm?dontcache=" + Math.round(Math.random() * 1000000),
   );
-  console.log(response);
   const wasm_blob = await response.arrayBuffer();
 
   await audioContext.audioWorklet.addModule("javascript/sonar-processor.js");

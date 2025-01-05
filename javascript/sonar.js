@@ -70,6 +70,8 @@ class SonarApp {
     for (const radio of radios) {
       radio.onchange = () => this.updateParams();
     }
+
+    this.fs = 44100;
     this.updateParams();
 
     // let showClutter = false;
@@ -95,7 +97,6 @@ class SonarApp {
 
   updateParams() {
     this.ignoreMessages = true;
-    const fs = 44100;
 
     //const bandwidthList = [1000, 2000, 4000, 8000, 12000, 16000];
     //const bandwidth = bandwidthList[this.bandwidthRange.value];
@@ -105,7 +106,7 @@ class SonarApp {
     const fc_step = 500;
     this.fcRange.min = Math.ceil((bandwidth * 1.3) / 2 / fc_step) * fc_step;
     this.fcRange.max =
-      Math.floor((fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
+      Math.floor((this.fs / 2 - (bandwidth * 1.3) / 2) / fc_step) * fc_step;
     const fc = Number(this.fcRange.value);
 
     const impulseLength = Math.round(
@@ -113,7 +114,7 @@ class SonarApp {
     );
 
     const max_CPI = 0.4;
-    let max_n_slow = Math.round((max_CPI * fs) / impulseLength);
+    let max_n_slow = Math.round((max_CPI * this.fs) / impulseLength);
     if (max_n_slow % 2 == 0) {
       max_n_slow -= 1;
     }
@@ -125,14 +126,14 @@ class SonarApp {
     const track_offset = this.offsetCheckbox.checked;
     const apply_window = this.windowCheckbox.checked && n_slow != 1;
 
-    const decimation = Math.floor(fs / (bandwidth * 1.3));
+    const decimation = Math.floor(this.fs / (bandwidth * 1.3));
     const n_fast = Math.ceil(impulseLength / decimation);
 
-    const impulseDuration = impulseLength / fs;
+    const impulseDuration = impulseLength / this.fs;
     const PRF = 1 / impulseDuration;
 
     const wavelength = speed_of_sound / fc;
-    const CPI = (impulseLength * n_slow) / fs;
+    const CPI = (impulseLength * n_slow) / this.fs;
     const dopplerResolution = 1 / CPI;
 
     const rangeAmbiguity = impulseDuration * speed_of_sound;
@@ -141,7 +142,7 @@ class SonarApp {
 
     const integrationGain = 10 * Math.log10(bandwidth * CPI);
 
-    this.rangeResolution = (speed_of_sound / fs) * decimation;
+    this.rangeResolution = (speed_of_sound / this.fs) * decimation;
     this.velocityResolution = dopplerResolution * wavelength;
 
     this.bandwidthLabel.innerHTML = bandwidth;
@@ -159,7 +160,7 @@ class SonarApp {
     this.rangeAmbiguityLabel.textContent = rangeAmbiguity.toFixed(2);
     this.velocityAmbiguityLabel.textContent = velocityAmbiguity.toFixed(2);
     this.chirpLengthLabel.textContent = impulseLength;
-    this.chirpDurationLabel.textContent = ((impulseLength / fs) * 1000).toFixed(
+    this.chirpDurationLabel.textContent = ((impulseLength / this.fs) * 1000).toFixed(
       2,
     );
 
@@ -173,7 +174,7 @@ class SonarApp {
       CPI /
       this.velocityResolution
     ).toFixed(1);
-    this.sampleRateLabel.textContent = fs;
+    this.sampleRateLabel.textContent = this.fs;
     // this.rangeVelocityCouplingLabel.textContent = ();
 
     // chirpRate*delta_t = delta_f
@@ -260,6 +261,10 @@ class SonarApp {
     this.started = true;
     await this.audio_graph.start();
     this.buttonStart.innerHTML = "stop";
+
+    // on the first run, we must save the true sample rate chosen by the device
+    this.fs = this.audio_graph.sampleRate;
+    this.updateParams();
   }
   async stop() {
     this.started = false;

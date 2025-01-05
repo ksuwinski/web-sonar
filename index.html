@@ -216,7 +216,7 @@
             </form>
             <!-- <div class="info-container"> -->
                 <div class="info-section">
-                    <h1>Basic radar parameters</h1>
+                    <h1>Sonar parameters</h1>
                     <div class="info-item">
                         <span class="hoverable" title="width of a single cell in the range-doppler map">range resolution</span>:
                         <span class="info-value" id="range-resolution-label"></span>
@@ -310,10 +310,15 @@
             <p>
                 Press the start button, and make sure that sound output is enabled on your computer. Don't use headphones.
                 By default, the sonar emits sound at near-ultrasound frequencies, so you may not hear anything, but you should see the 'peak input level' value increase.
-                You may have to adjust volume and microphone sensitivity to get good results.
+                You may have to adjust volume and microphone sensitivity to get good results. Currently only the left audio channel is used.
             </p>
             <p>
                 Warning: there seems to be a problem with some browsers (confirmed on Firefox for Android). Try using a different browser if the canvas stays blank after pressing the start button.
+            </p>
+            <p>Moving your hand towards the speaker should produce something like this: </p>
+            <figure>
+                <img src="screenshot.png">
+            </figure>
             </p>
             <p>
                 The range-doppler plot has two axes: <a href="https://en.wikipedia.org/wiki/Bistatic_radar#Range">bistatic range</a> and bistatic velocity.
